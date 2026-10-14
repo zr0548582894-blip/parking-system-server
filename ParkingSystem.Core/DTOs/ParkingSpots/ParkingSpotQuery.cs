@@ -16,7 +16,7 @@ public class ParkingSpotQuery : PaginationQuery
 
     // התאריך שלפיו מחשבים פנוי/תפוס
     public DateOnly? Date { get; set; }
-
+      
     // true = רק מקומות פנויים בתאריך Date (דורש Date; הבדיקה ב-Service)
     public bool Available { get; set; }
 

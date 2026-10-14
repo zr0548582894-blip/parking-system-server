@@ -11,3 +11,4 @@ public class AuthResponse
     public string Email { get; set; } = string.Empty;
     public UserRole Role { get; set; }
 }
+

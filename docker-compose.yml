@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:16
+    container_name: parking-system-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: parking_system
+      # פיתוח מקומי בלבד: בלי סיסמה, כדי שלא תהיה סיסמה כתובה ב-repo.
+      # זה בטוח רק כי הפורט למטה פתוח למחשב המקומי בלבד (127.0.0.1)
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # הנתונים נשמרים גם אחרי שהקונטיינר נעצר או נמחק
+      - parking-system-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d parking_system"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  parking-system-data:
