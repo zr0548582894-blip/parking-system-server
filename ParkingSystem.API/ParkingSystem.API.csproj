@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParkingSystem.Core\ParkingSystem.Core.csproj" />
+    <ProjectReference Include="..\ParkingSystem.Service\ParkingSystem.Service.csproj" />
+    <ProjectReference Include="..\ParkingSystem.Data\ParkingSystem.Data.csproj" />
+  </ItemGroup>
+
+</Project>
