@@ -6,6 +6,10 @@ namespace ParkingSystem.Data.Configurations;
 
 public class UserConfiguration : IEntityTypeConfiguration<User>
 {
+    // שם האינדקס הוא קבוע כדי ש-Repository יזהה לפיו בדיוק את הפרת הייחודיות של האימייל.
+    // זה אותו שם ש-EF נתן ב-migration הקיים, ולכן אין שינוי בסכמה
+    public const string EmailIndexName = "IX_Users_Email";
+
     public void Configure(EntityTypeBuilder<User> builder)
     {
         builder.HasKey(u => u.Id);
@@ -17,6 +21,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         // ה-enum נשמר כטקסט ("Admin") ולא כמספר, כדי שיהיה קריא בבסיס הנתונים
         builder.Property(u => u.Role).HasConversion<string>().HasMaxLength(20);
 
-        builder.HasIndex(u => u.Email).IsUnique();
+        builder.HasIndex(u => u.Email).IsUnique().HasDatabaseName(EmailIndexName);
     }
 }

@@ -1,21 +1,82 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using ParkingSystem.Core.Common;
 using ParkingSystem.Core.Entities;
+using ParkingSystem.Core.Enums;
+using ParkingSystem.Core.Interfaces.Security;
+using ParkingSystem.Core.Options;
 using ParkingSystem.Data.Context;
 
 namespace ParkingSystem.Data.Seed;
 
 // מזין נתוני התחלה, כדי שאפשר יהיה להפעיל את המערכת מיד אחרי הקמת בסיס הנתונים.
-// הפעולה בטוחה להרצה חוזרת: כל חלק נכנס רק אם הטבלה שלו ריקה
+// הפעולה בטוחה להרצה חוזרת: כל חלק נכנס רק אם הנתון שלו עדיין לא קיים
 public static class DbSeeder
 {
     private const string Accessible = "נגיש";
     private const string Covered = "מקורה";
     private const string EvCharging = "טעינה לרכב חשמלי";
 
-    public static async Task SeedAsync(AppDbContext context, CancellationToken ct)
+    // IPasswordHasher הוא ממשק מ-Core: Data לא מכיר את Service, וה-API מחבר את המימוש
+    public static async Task SeedAsync(
+        AppDbContext context,
+        IPasswordHasher passwordHasher,
+        SeedUsersOptions usersOptions,
+        ILogger logger,
+        CancellationToken ct)
     {
         await SeedFeaturesAsync(context, ct);
         await SeedParkingSpotsAsync(context, ct);
+        await SeedUsersAsync(context, passwordHasher, usersOptions, logger, ct);
+    }
+
+    private static async Task SeedUsersAsync(
+        AppDbContext context,
+        IPasswordHasher passwordHasher,
+        SeedUsersOptions options,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        await SeedUserAsync(context, passwordHasher, logger, "Admin user", "Admin",
+            options.AdminEmail, options.AdminPassword, UserRole.Admin, ct);
+        await SeedUserAsync(context, passwordHasher, logger, "Employee user", "Employee",
+            options.EmployeeEmail, options.EmployeePassword, UserRole.Employee, ct);
+    }
+
+    private static async Task SeedUserAsync(
+        AppDbContext context,
+        IPasswordHasher passwordHasher,
+        ILogger logger,
+        string description,
+        string fullName,
+        string email,
+        string password,
+        UserRole role,
+        CancellationToken ct)
+    {
+        // הסיסמה מגיעה רק מהקונפיגורציה. בלעדיה לא יוצרים את המשתמש (ולא כותבים אותה בלוג)
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            logger.LogWarning("{Description} was not seeded: no password is configured under {Section}.",
+                description, SeedUsersOptions.SectionName);
+            return;
+        }
+
+        var normalizedEmail = EmailNormalizer.Normalize(email);
+        if (await context.Users.AnyAsync(u => u.Email == normalizedEmail, ct))
+        {
+            return;
+        }
+
+        context.Users.Add(new User
+        {
+            Email = normalizedEmail,
+            FullName = fullName,
+            PasswordHash = passwordHasher.Hash(password),
+            Role = role
+        });
+
+        await context.SaveChangesAsync(ct);
     }
 
     private static async Task SeedFeaturesAsync(AppDbContext context, CancellationToken ct)
