@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ParkingSystem.Core\ParkingSystem.Core.csproj" />
     <ProjectReference Include="..\ParkingSystem.Service\ParkingSystem.Service.csproj" />
+    <ProjectReference Include="..\ParkingSystem.Data\ParkingSystem.Data.csproj" />
   </ItemGroup>
 
 </Project>
