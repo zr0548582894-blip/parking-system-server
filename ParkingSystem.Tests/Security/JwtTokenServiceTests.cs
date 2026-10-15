@@ -6,6 +6,7 @@ using ParkingSystem.Core.Entities;
 using ParkingSystem.Core.Enums;
 using ParkingSystem.Core.Options;
 using ParkingSystem.Service.Security;
+using ParkingSystem.Tests.Helpers;
 
 namespace ParkingSystem.Tests.Security;
 
@@ -103,10 +104,5 @@ public class JwtTokenServiceTests
         var exception = Assert.Throws<InvalidOperationException>(() => service.CreateToken(TestUser));
 
         Assert.DoesNotContain("tiny-key", exception.Message);
-    }
-
-    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
-    {
-        public override DateTimeOffset GetUtcNow() => now;
     }
 }

@@ -5,9 +5,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="14.0.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AutoMapper 14.0.0 (CVE-2026-32933, DoS via uncontrolled recursion when mapping very deep or cyclic object graphs).
+         Patched versions (15.1.1+, 16.1.1+) need a commercial/community license key; the course requires AutoMapper Profiles.
+         Accepted risk: our maps are shallow, fixed-depth, entity -> DTO, and never run on user-controlled graphs.
+         Revisit if the mapping surface grows. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
   </ItemGroup>
 
   <PropertyGroup>

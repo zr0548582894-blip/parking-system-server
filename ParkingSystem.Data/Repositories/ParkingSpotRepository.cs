@@ -57,9 +57,9 @@ public class ParkingSpotRepository : Repository, IParkingSpotRepository
 
         if (query.Available && query.Date.HasValue)
         {
-            // רק מקומות שאין עליהם הזמנה פעילה באותו תאריך
+            // רק מקומות פעילים שאין עליהם הזמנה פעילה באותו תאריך
             var date = query.Date.Value;
-            spots = spots.Where(p => !p.Reservations.Any(r => r.Date == date && r.Status == ReservationStatus.Active));
+            spots = spots.Where(p => p.IsActive && !p.Reservations.Any(r => r.Date == date && r.Status == ReservationStatus.Active));
         }
 
         // הספירה נעשית אחרי הסינון ולפני החיתוך לעמוד

@@ -39,6 +39,11 @@ public abstract class Repository : IRepository
             // שתי הרשמות מקבילות עם אותו אימייל: שתיהן עברו את הבדיקה, והאינדקס הייחודי עצר את השנייה
             throw new DuplicateEmailException("A user with this email already exists.", ex);
         }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex, ParkingSpotConfiguration.CodeIndexName))
+        {
+            // שתי יצירות או עדכונים מקבילים עם אותו קוד מקום: האינדקס הייחודי עצר את השנייה
+            throw new DuplicateSpotCodeException("A parking spot with this code already exists.", ex);
+        }
     }
 
     // 23505 = unique_violation ב-PostgreSQL. מזהים לפי שם האינדקס המדויק, כדי שהפרת ייחודיות
