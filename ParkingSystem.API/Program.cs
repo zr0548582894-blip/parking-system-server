@@ -1,25 +1,35 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using NLog;
+using NLog.Web;
+using ParkingSystem.API.Extensions;
+using ParkingSystem.API.Middleware;
 using ParkingSystem.Core.Interfaces.Security;
 using ParkingSystem.Core.Options;
 using ParkingSystem.Data.Context;
 using ParkingSystem.Data.Seed;
-using ParkingSystem.Service.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// NLog מחליף את מנגנון הלוגים המובנה, אבל הקוד ממשיך לכתוב דרך ILogger הרגיל.
+// ההגדרות (יעדים, פורמט, רמות) נמצאות ב-nlog.config.
+// מנקים את ספקי הלוגים המובנים, כדי שכל הלוגים יעברו דרך NLog בלבד ובפורמט אחד
+builder.Logging.ClearProviders();
+builder.Host.UseNLog();
+
+// בסביבת פיתוח כותבים גם הודעות Debug. בייצור נשארים ב-Information
+var nlogConfiguration = LogManager.Configuration;
+if (builder.Environment.IsDevelopment() && nlogConfiguration is not null)
+{
+    nlogConfiguration.Variables["minLevel"] = "Debug";
+    LogManager.ReconfigExistingLoggers();
+}
+
 // Add services to the container.
 
-// ה-DbContext נרשם כ-Scoped (ברירת המחדל): instance אחד לכל בקשה.
-// ה-connection string נקרא מהקונפיגורציה ולא כתוב בקוד
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
-
-// משתמשי הדמו וסיסמאותיהם מגיעים מהקונפיגורציה (User Secrets בפיתוח), לא מהקוד
-builder.Services.Configure<SeedUsersOptions>(builder.Configuration.GetSection(SeedUsersOptions.SectionName));
-
-// Singleton: ה-hasher חסר מצב, ולכן בטוח לשתף אותו בין בקשות (הוא לא מחזיק DbContext)
-builder.Services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
+// כל רישום ה-DI (עם ה-lifetimes וההסברים) נמצא ב-Extensions/ServiceCollectionExtensions.cs
+builder.Services.AddPersistence(builder.Configuration);
+builder.Services.AddApplicationServices(builder.Configuration);
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -40,9 +50,20 @@ using (var scope = app.Services.CreateScope())
         scope.ServiceProvider.GetRequiredService<IOptions<SeedUsersOptions>>().Value,
         app.Logger,
         app.Lifetime.ApplicationStopping);
+
+    app.Logger.LogDebug("Database migrated and seeded.");
 }
 
+app.Logger.LogInformation("ParkingSystem API is starting in the {Environment} environment.", app.Environment.EnvironmentName);
+
 // Configure the HTTP request pipeline.
+
+// הסדר חשוב: טיפול בשגיאות ראשון, כדי שיתפוס חריגה מכל מה שמגיע אחריו.
+// אחריו מזהה הבקשה, ורק אז לוג הבקשות (כדי שכל שורת לוג תכלול את המזהה)
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
