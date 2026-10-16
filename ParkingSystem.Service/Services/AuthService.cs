@@ -1,7 +1,8 @@
+using AutoMapper;
+using Microsoft.Extensions.Logging;
 using ParkingSystem.Core.Common;
 using ParkingSystem.Core.DTOs.Auth;
 using ParkingSystem.Core.Entities;
-using ParkingSystem.Core.Enums;
 using ParkingSystem.Core.Exceptions;
 using ParkingSystem.Core.Interfaces.Repositories;
 using ParkingSystem.Core.Interfaces.Security;
@@ -17,32 +18,36 @@ public class AuthService : IAuthService
     private readonly IUserRepository _users;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
+    private readonly IMapper _mapper;
+    private readonly ILogger<AuthService> _logger;
 
-    public AuthService(IUserRepository users, IPasswordHasher passwordHasher, ITokenService tokenService)
+    public AuthService(
+        IUserRepository users,
+        IPasswordHasher passwordHasher,
+        ITokenService tokenService,
+        IMapper mapper,
+        ILogger<AuthService> logger)
     {
         _users = users;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
+        _mapper = mapper;
+        _logger = logger;
     }
 
     public async Task<Result<AuthResponse>> RegisterAsync(RegisterRequest request, CancellationToken ct)
     {
-        var email = EmailNormalizer.Normalize(request.Email);
+        // AutoMapper: מנרמל את האימייל, מנקה את השם וקובע תפקיד Employee (הרשמה עצמית לא יוצרת Admin).
+        // הסיסמה לא ממופה, והיא נשמרת רק כ-hash בשורה למטה
+        var user = _mapper.Map<User>(request);
 
         // ולידציה עסקית (תלויה במצב הנתונים): ההודעה הידידותית למקרה הרגיל
-        if (await _users.EmailExistsAsync(email, ct))
+        if (await _users.EmailExistsAsync(user.Email, ct))
         {
             return Result<AuthResponse>.Fail(ErrorType.Conflict, EmailTakenMessage);
         }
 
-        var user = new User
-        {
-            Email = email,
-            FullName = request.FullName.Trim(),
-            PasswordHash = _passwordHasher.Hash(request.Password),
-            // הרשמה עצמית יוצרת תמיד Employee. את התפקיד Admin אי אפשר לקבל דרך ה-API
-            Role = UserRole.Employee
-        };
+        user.PasswordHash = _passwordHasher.Hash(request.Password);
 
         await _users.AddAsync(user, ct);
 
@@ -50,10 +55,12 @@ public class AuthService : IAuthService
         {
             await _users.SaveChangesAsync(ct);
         }
-        catch (DuplicateEmailException)
+        catch (DuplicateEmailException exception)
         {
             // שתי הרשמות מקבילות עם אותו אימייל עברו יחד את הבדיקה למעלה.
-            // האילוץ הייחודי בבסיס הנתונים עצר את השנייה, והתוצאה זהה לבדיקה הרגילה
+            // האילוץ הייחודי בבסיס הנתונים עצר את השנייה, והתוצאה זהה לבדיקה הרגילה.
+            // האימייל עצמו לא נכתב ללוג (מידע אישי)
+            _logger.LogWarning(exception, "Registration conflict: an email was registered by a parallel request.");
             return Result<AuthResponse>.Fail(ErrorType.Conflict, EmailTakenMessage);
         }
 

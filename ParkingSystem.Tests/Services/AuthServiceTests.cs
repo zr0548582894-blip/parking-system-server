@@ -1,3 +1,5 @@
+using AutoMapper;
+using Microsoft.Extensions.Logging;
 using Moq;
 using ParkingSystem.Core.Common;
 using ParkingSystem.Core.DTOs.Auth;
@@ -6,7 +8,9 @@ using ParkingSystem.Core.Enums;
 using ParkingSystem.Core.Exceptions;
 using ParkingSystem.Core.Interfaces.Repositories;
 using ParkingSystem.Core.Interfaces.Security;
+using ParkingSystem.Service.Mapping;
 using ParkingSystem.Service.Services;
+using ParkingSystem.Tests.Helpers;
 
 namespace ParkingSystem.Tests.Services;
 
@@ -17,6 +21,7 @@ public class AuthServiceTests
     private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<IPasswordHasher> _hasher = new();
     private readonly Mock<ITokenService> _tokens = new();
+    private readonly CapturingLogger<AuthService> _logger = new();
     private readonly AuthService _service;
 
     public AuthServiceTests()
@@ -24,7 +29,8 @@ public class AuthServiceTests
         _hasher.Setup(h => h.Hash(It.IsAny<string>())).Returns<string>(password => $"hashed:{password}");
         _tokens.Setup(t => t.CreateToken(It.IsAny<User>())).Returns(new GeneratedToken("jwt-token", TokenExpiry));
 
-        _service = new AuthService(_users.Object, _hasher.Object, _tokens.Object);
+        var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+        _service = new AuthService(_users.Object, _hasher.Object, _tokens.Object, mapper, _logger);
     }
 
     private static RegisterRequest NewRegisterRequest(string email = "dana@example.com") => new()
@@ -104,6 +110,34 @@ public class AuthServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorType.Conflict, result.Error);
         _tokens.Verify(t => t.CreateToken(It.IsAny<User>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Register_ParallelDuplicate_IsLoggedAsWarningWithoutTheEmailAddress()
+    {
+        _users.Setup(u => u.EmailExistsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _users.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DuplicateEmailException("duplicate"));
+
+        await _service.RegisterAsync(NewRegisterRequest(), CancellationToken.None);
+
+        var entry = Assert.Single(_logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.DoesNotContain("dana@example.com", entry.Message);
+    }
+
+    [Fact]
+    public async Task Register_StoresOnlyTheHashOfThePassword_AndAlwaysCreatesAnEmployee()
+    {
+        User? saved = null;
+        _users.Setup(u => u.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback<User, CancellationToken>((user, _) => saved = user).Returns(Task.CompletedTask);
+
+        await _service.RegisterAsync(NewRegisterRequest(), CancellationToken.None);
+
+        _hasher.Verify(h => h.Hash("Secret123!"), Times.Once);
+        Assert.Equal("hashed:Secret123!", saved!.PasswordHash);
+        Assert.Equal(UserRole.Employee, saved.Role);
     }
 
     // ---------- התחברות ----------

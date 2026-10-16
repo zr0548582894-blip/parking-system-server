@@ -39,7 +39,7 @@ public class ApiEndToEndTests : IClassFixture<ApiTestHost>
 
     private async Task<(HttpClient Client, AuthResponse Auth)> LoginAsync(string email, string password)
     {
-        var response = await _host.CreateClient().PostAsJsonAsync("/api/auth/login", new { email, password });
+        var response = await _host.CreateClient().PostAsJsonAsync("/api/tokens", new { email, password });
         response.EnsureSuccessStatusCode();
         var auth = (await response.Content.ReadFromJsonAsync<AuthResponse>(Json))!;
         return (WithToken(auth.Token), auth);
@@ -50,7 +50,7 @@ public class ApiEndToEndTests : IClassFixture<ApiTestHost>
 
     private async Task<(HttpClient Client, AuthResponse Auth)> NewEmployeeAsync()
     {
-        var response = await _host.CreateClient().PostAsJsonAsync("/api/auth/register", new
+        var response = await _host.CreateClient().PostAsJsonAsync("/api/users", new
         {
             fullName = "E2E Employee",
             email = $"e2e-{Guid.NewGuid():N}@test.local",
@@ -99,7 +99,7 @@ public class ApiEndToEndTests : IClassFixture<ApiTestHost>
     [PostgresFact]
     public async Task LoginWithAWrongPassword_Returns401()
     {
-        var response = await _host.CreateClient().PostAsJsonAsync("/api/auth/login",
+        var response = await _host.CreateClient().PostAsJsonAsync("/api/tokens",
             new { email = ApiTestHost.AdminEmail, password = "wrong-password" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -120,7 +120,7 @@ public class ApiEndToEndTests : IClassFixture<ApiTestHost>
     [PostgresFact]
     public async Task InvalidRegistration_Returns400WithFieldErrorsAndACorrelationId()
     {
-        var response = await _host.CreateClient().PostAsJsonAsync("/api/auth/register",
+        var response = await _host.CreateClient().PostAsJsonAsync("/api/users",
             new { fullName = "X", email = "not-an-email", password = "short" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -137,8 +137,8 @@ public class ApiEndToEndTests : IClassFixture<ApiTestHost>
         var request = new { fullName = "Dup User", email, password = "Passw0rd!Test" };
         var client = _host.CreateClient();
 
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/auth/register", request)).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/auth/register", request)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/users", request)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/users", request)).StatusCode);
     }
 
     [PostgresFact]

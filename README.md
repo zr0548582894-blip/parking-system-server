@@ -151,7 +151,7 @@ docker compose up -d
 
 אלו סיסמאות **דמו בלבד**, ואין להשתמש בהן במקום אחר. הן אינן נמצאות בקובצי ההגדרות, רק בפקודות ההגדרה כאן. אפשר לבחור סיסמאות אחרות בפקודות `user-secrets set`.
 
-התחברות: `POST /api/auth/login` מחזיר `token`. הרשמה עצמית (`POST /api/auth/register`) יוצרת תמיד **Employee**.
+התחברות: `POST /api/tokens` מחזיר `token`. הרשמה עצמית (`POST /api/users`) יוצרת תמיד **Employee**.
 
 ---
 
@@ -160,7 +160,7 @@ docker compose up -d
 אחרי הפעלת השרת: **http://localhost:5258/swagger**. הממשק נפתח אוטומטית בהרצה דרך Visual Studio או `dotnet run`.
 
 כדי לבדוק פעולות מוגנות:
-1. הפעילו `POST /api/auth/login` עם אימייל וסיסמה של משתמש דמו.
+1. הפעילו `POST /api/tokens` עם אימייל וסיסמה של משתמש דמו.
 2. העתיקו את הערך של `token` מהתשובה.
 3. לחצו על **Authorize** (למעלה בצד ימין), הדביקו את ה-token **בלי** המילה `Bearer`, ולחצו Authorize.
 4. פעולות מוגנות מסומנות בנעילה.
@@ -176,8 +176,8 @@ docker compose up -d
 
 | Method | נתיב | מי מורשה | הצלחה | שגיאות אפשריות |
 |---|---|---|---|---|
-| POST | `/api/auth/register` | פתוח | 200 + token | 400, 409 (אימייל קיים) |
-| POST | `/api/auth/login` | פתוח | 200 + token | 400, 401 |
+| POST | `/api/users` | פתוח | 200 + token | 400, 409 (אימייל קיים) |
+| POST | `/api/tokens` | פתוח | 200 + token | 400, 401 |
 | GET | `/api/features` | מחובר | 200 | 401 |
 | GET | `/api/parking-spots` | מחובר | 200 (עמוד) | 400, 401 |
 | GET | `/api/parking-spots/{id}` | מחובר | 200 | 401, 404 |

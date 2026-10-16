@@ -17,7 +17,7 @@ public static class SwaggerServiceCollectionExtensions
                 Version = "v1",
                 Description = "הקצאת מקומות חניה: עובדים מזמינים מקום ליום מסוים. " +
                               "המשאב המוגבל הוא מקום חניה בתאריך נתון, ושתי הזמנות לאותו מקום וליום לא יתקבלו (409). " +
-                              "כדי לבדוק פעולות מוגנות: התחברו ב-POST /api/auth/login, לחצו Authorize והדביקו את ה-token."
+                              "כדי לבדוק פעולות מוגנות: התחברו ב-POST /api/tokens, לחצו Authorize והדביקו את ה-token."
             });
 
             // כפתור Authorize: מדביקים רק את ה-token, ו-Swagger מוסיף לבד את "Bearer "

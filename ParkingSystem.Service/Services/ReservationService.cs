@@ -77,7 +77,7 @@ public class ReservationService : IReservationService
         {
             // הקריאה, הבדיקות והשמירה רצות בטרנזקציה אחת
             created = await _reservations.ExecuteInTransactionAsync(
-                token => TryCreateAsync(userId, request.ParkingSpotId, date, now, token), ct);
+                token => TryCreateAsync(userId, request, date, now, token), ct);
         }
         catch (ReservationConflictException ex)
         {
@@ -154,8 +154,9 @@ public class ReservationService : IReservationService
 
     // הבדיקות העסקיות התלויות במצב הנתונים והשמירה. רצות בתוך הטרנזקציה
     private async Task<Result<int>> TryCreateAsync(
-        int userId, int spotId, DateOnly date, DateTime now, CancellationToken ct)
+        int userId, CreateReservationRequest request, DateOnly date, DateTime now, CancellationToken ct)
     {
+        var spotId = request.ParkingSpotId;
         var spot = await _spots.GetByIdAsync(spotId, ct);
         if (spot is null)
         {
@@ -170,22 +171,23 @@ public class ReservationService : IReservationService
         // הגנה ראשונה: הודעה ברורה במקרה הרגיל (לא מספיקה לבדה בבקשות מקבילות)
         if (await _reservations.IsSpotReservedAsync(spotId, date, ct))
         {
+            _logger.LogWarning(
+                "Reservation conflict: spot {SpotId} is already reserved on {Date} (requested by user {UserId}).",
+                spotId, date, userId);
             return Result<int>.Fail(ErrorType.Conflict, SpotTakenMessage);
         }
 
         if (await _reservations.UserHasReservationAsync(userId, date, ct))
         {
+            _logger.LogWarning(
+                "Reservation conflict: user {UserId} already has a reservation on {Date}.", userId, date);
             return Result<int>.Fail(ErrorType.Conflict, UserAlreadyReservedMessage);
         }
 
-        var reservation = new Reservation
-        {
-            UserId = userId,
-            ParkingSpotId = spotId,
-            Date = date,
-            Status = ReservationStatus.Active,
-            CreatedAtUtc = now
-        };
+        // AutoMapper: המקום, התאריך והסטטוס (פעילה). המזמין נלקח מה-token וזמן היצירה נקבע כאן
+        var reservation = _mapper.Map<Reservation>(request);
+        reservation.UserId = userId;
+        reservation.CreatedAtUtc = now;
 
         // הגנה שנייה: מעדכנים את המקום עצמו, כדי שה-UPDATE יכלול את ה-xmin שנקרא.
         // אם מישהו אחר עדכן אותו בינתיים, השמירה תיכשל ותיזרק חריגת התנגשות

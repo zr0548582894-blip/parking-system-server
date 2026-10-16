@@ -5,7 +5,9 @@ using ParkingSystem.Core.Interfaces.Services;
 
 namespace ParkingSystem.API.Controllers;
 
-[Route("api/auth")]
+// הרשמה והתחברות כמשאבים (REST): יצירת משתמש היא POST /api/users, ויצירת token היא POST /api/tokens.
+// השמות הם שמות עצם ברבים, והפעולה נקבעת לפי ה-HTTP method ולא לפי שם פעולה בכתובת
+[Route("api")]
 [AllowAnonymous]
 public class AuthController : ApiControllerBase
 {
@@ -20,7 +22,7 @@ public class AuthController : ApiControllerBase
     /// <response code="200">ההרשמה הצליחה, ומוחזר token לשליחה בבקשות הבאות.</response>
     /// <response code="400">אחד או יותר מהשדות אינם תקינים. מוחזרת רשימת שגיאות לכל שדה.</response>
     /// <response code="409">כתובת האימייל כבר רשומה במערכת.</response>
-    [HttpPost("register")]
+    [HttpPost("users")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -38,7 +40,7 @@ public class AuthController : ApiControllerBase
     /// <response code="200">ההתחברות הצליחה, ומוחזר token.</response>
     /// <response code="400">אחד או יותר מהשדות אינם תקינים.</response>
     /// <response code="401">האימייל או הסיסמה שגויים.</response>
-    [HttpPost("login")]
+    [HttpPost("tokens")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]

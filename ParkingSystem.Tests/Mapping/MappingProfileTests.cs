@@ -23,6 +23,71 @@ public class MappingProfileTests
     }
 
     [Fact]
+    public void CreateSpotRequest_MapsToAnActiveSpot_WithATrimmedCode_AndServerOwnedFieldsLeftEmpty()
+    {
+        var spot = _mapper.Map<ParkingSpot>(
+            new ParkingSystem.Core.DTOs.ParkingSpots.CreateParkingSpotRequest { Code = "  G-09 ", Floor = 2, FeatureIds = { 1, 2 } });
+
+        Assert.Equal("G-09", spot.Code);
+        Assert.Equal(2, spot.Floor);
+        Assert.True(spot.IsActive);
+        Assert.Equal(0, spot.Id);
+        Assert.Equal(0u, spot.Version);
+        Assert.Null(spot.LastReservedAtUtc);
+        Assert.Empty(spot.Features);     // המאפיינים נטענים ב-Service לפי המזהים
+    }
+
+    [Fact]
+    public void UpdateSpotRequest_UpdatesTheSimpleFieldsOfAnExistingSpot_AndKeepsItsIdentityAndVersion()
+    {
+        var existing = new ParkingSpot { Id = 4, Code = "OLD", Floor = 0, IsActive = true, Version = 77 };
+        existing.Features.Add(new Feature { Id = 1, Name = "נגיש" });
+
+        _mapper.Map(
+            new ParkingSystem.Core.DTOs.ParkingSpots.UpdateParkingSpotRequest { Code = " NEW ", Floor = 3, IsActive = false },
+            existing);
+
+        Assert.Equal("NEW", existing.Code);
+        Assert.Equal(3, existing.Floor);
+        Assert.False(existing.IsActive);
+        Assert.Equal(4, existing.Id);
+        Assert.Equal(77u, existing.Version);
+        Assert.Single(existing.Features);   // המאפיינים לא נמחקים במיפוי
+    }
+
+    [Fact]
+    public void RegisterRequest_MapsToAnEmployee_WithANormalizedEmail_AndNoPasswordOnTheEntity()
+    {
+        var user = _mapper.Map<User>(new ParkingSystem.Core.DTOs.Auth.RegisterRequest
+        {
+            FullName = "  Dana Levi ",
+            Email = "  Dana@Example.COM ",
+            Password = "Secret123!"
+        });
+
+        Assert.Equal("dana@example.com", user.Email);
+        Assert.Equal("Dana Levi", user.FullName);
+        Assert.Equal(UserRole.Employee, user.Role);
+        Assert.Equal(string.Empty, user.PasswordHash);   // ה-hash נקבע ב-Service בלבד
+    }
+
+    [Fact]
+    public void CreateReservationRequest_MapsToAnActiveReservation_WithoutAnOwnerOrCreationTime()
+    {
+        var reservation = _mapper.Map<Reservation>(new ParkingSystem.Core.DTOs.Reservations.CreateReservationRequest
+        {
+            ParkingSpotId = 4,
+            Date = new DateOnly(2030, 5, 1)
+        });
+
+        Assert.Equal(4, reservation.ParkingSpotId);
+        Assert.Equal(new DateOnly(2030, 5, 1), reservation.Date);
+        Assert.Equal(ReservationStatus.Active, reservation.Status);
+        Assert.Equal(0, reservation.UserId);                     // נקבע מה-token, לא מהבקשה
+        Assert.Equal(default, reservation.CreatedAtUtc);
+    }
+
+    [Fact]
     public void Reservation_MapsToResponseWithUserNameSpotAndFeatures()
     {
         var reservation = new Reservation

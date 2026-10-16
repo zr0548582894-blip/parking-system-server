@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using ParkingSystem.Core.Common;
 using ParkingSystem.Core.DTOs.ParkingSpots;
 using ParkingSystem.Core.Entities;
@@ -21,17 +22,20 @@ public class ParkingSpotService : IParkingSpotService
     private readonly IFeatureRepository _features;
     private readonly IMapper _mapper;
     private readonly TimeProvider _timeProvider;
+    private readonly ILogger<ParkingSpotService> _logger;
 
     public ParkingSpotService(
         IParkingSpotRepository spots,
         IFeatureRepository features,
         IMapper mapper,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        ILogger<ParkingSpotService> logger)
     {
         _spots = spots;
         _features = features;
         _mapper = mapper;
         _timeProvider = timeProvider;
+        _logger = logger;
     }
 
     public async Task<Result<PagedResult<ParkingSpotResponse>>> GetPagedAsync(ParkingSpotQuery query, CancellationToken ct)
@@ -81,6 +85,7 @@ public class ParkingSpotService : IParkingSpotService
 
         if (await _spots.CodeExistsAsync(code, excludeId: null, ct))
         {
+            _logger.LogWarning("Parking spot conflict: code {Code} already exists.", code);
             return Result<ParkingSpotResponse>.Fail(ErrorType.Conflict, CodeTakenMessage);
         }
 
@@ -90,7 +95,9 @@ public class ParkingSpotService : IParkingSpotService
             return Result<ParkingSpotResponse>.Fail(ErrorType.Validation, UnknownFeatureMessage);
         }
 
-        var spot = new ParkingSpot { Code = code, Floor = request.Floor, IsActive = true, Features = features };
+        // AutoMapper: מנקה את הקוד וקובע שהמקום פעיל. המאפיינים נטענו מבסיס הנתונים ומתווספים כאן
+        var spot = _mapper.Map<ParkingSpot>(request);
+        spot.Features = features;
 
         await _spots.AddAsync(spot, ct);
 
@@ -98,9 +105,10 @@ public class ParkingSpotService : IParkingSpotService
         {
             await _spots.SaveChangesAsync(ct);
         }
-        catch (DuplicateSpotCodeException)
+        catch (DuplicateSpotCodeException exception)
         {
             // שתי יצירות מקבילות עם אותו קוד עברו יחד את הבדיקה, והאינדקס הייחודי עצר את השנייה
+            _logger.LogWarning(exception, "Parking spot conflict: code {Code} was taken by a parallel request.", code);
             return Result<ParkingSpotResponse>.Fail(ErrorType.Conflict, CodeTakenMessage);
         }
 
@@ -120,6 +128,7 @@ public class ParkingSpotService : IParkingSpotService
         // excludeId: המקום לא מתנגש עם הקוד של עצמו
         if (await _spots.CodeExistsAsync(code, excludeId: id, ct))
         {
+            _logger.LogWarning("Parking spot conflict: code {Code} is used by another spot (update of spot {SpotId}).", code, id);
             return Result<ParkingSpotResponse>.Fail(ErrorType.Conflict, CodeTakenMessage);
         }
 
@@ -129,9 +138,9 @@ public class ParkingSpotService : IParkingSpotService
             return Result<ParkingSpotResponse>.Fail(ErrorType.Validation, UnknownFeatureMessage);
         }
 
-        spot.Code = code;
-        spot.Floor = request.Floor;
-        spot.IsActive = request.IsActive;
+        // AutoMapper מעדכן את השדות הפשוטים (קוד, קומה, פעיל) על המקום הקיים.
+        // המזהה, הגרסה וההזמנות לא נוגעים, והמאפיינים מוחלפים ידנית בשורות הבאות
+        _mapper.Map(request, spot);
         spot.Features.Clear();
         foreach (var feature in features)
         {
@@ -142,14 +151,16 @@ public class ParkingSpotService : IParkingSpotService
         {
             await _spots.SaveChangesAsync(ct);
         }
-        catch (ReservationConflictException)
+        catch (ReservationConflictException exception)
         {
             // ה-token (xmin) של המקום לא תאם: מישהו עדכן אותו בין הקריאה לשמירה
+            _logger.LogWarning(exception, "Parking spot conflict: spot {SpotId} was changed by another request.", id);
             return Result<ParkingSpotResponse>.Fail(ErrorType.Conflict, ChangedByAnotherMessage);
         }
-        catch (DuplicateSpotCodeException)
+        catch (DuplicateSpotCodeException exception)
         {
             // מישהו אחר תפס את הקוד החדש בדיוק באותו רגע
+            _logger.LogWarning(exception, "Parking spot conflict: code {Code} was taken by a parallel request.", code);
             return Result<ParkingSpotResponse>.Fail(ErrorType.Conflict, CodeTakenMessage);
         }
 
@@ -175,6 +186,7 @@ public class ParkingSpotService : IParkingSpotService
         var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
         if (await _spots.HasFutureReservationsAsync(id, today, ct))
         {
+            _logger.LogWarning("Parking spot conflict: spot {SpotId} has future reservations and cannot be removed.", id);
             return Result.Fail(ErrorType.Conflict, HasFutureReservationsMessage);
         }
 
@@ -184,9 +196,10 @@ public class ParkingSpotService : IParkingSpotService
         {
             await _spots.SaveChangesAsync(ct);
         }
-        catch (ReservationConflictException)
+        catch (ReservationConflictException exception)
         {
             // מישהו שינה את המקום (או הזמין אותו) בין הקריאה לשמירה
+            _logger.LogWarning(exception, "Parking spot conflict: spot {SpotId} was changed by another request.", id);
             return Result.Fail(ErrorType.Conflict, ChangedByAnotherMessage);
         }
 

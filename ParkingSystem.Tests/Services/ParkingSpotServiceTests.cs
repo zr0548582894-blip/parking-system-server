@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using Moq;
 using ParkingSystem.Core.Common;
 using ParkingSystem.Core.DTOs.ParkingSpots;
@@ -18,13 +19,17 @@ public class ParkingSpotServiceTests
 
     private readonly Mock<IParkingSpotRepository> _spots = new();
     private readonly Mock<IFeatureRepository> _features = new();
+    private readonly CapturingLogger<ParkingSpotService> _logger = new();
     private readonly ParkingSpotService _service;
 
     public ParkingSpotServiceTests()
     {
         var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
-        _service = new ParkingSpotService(_spots.Object, _features.Object, mapper, new FixedTimeProvider(Now));
+        _service = new ParkingSpotService(_spots.Object, _features.Object, mapper, new FixedTimeProvider(Now), _logger);
     }
+
+    private void AssertSingleWarning() =>
+        Assert.Equal(LogLevel.Warning, Assert.Single(_logger.Entries).Level);
 
     private static CancellationToken Ct => CancellationToken.None;
 
@@ -214,6 +219,52 @@ public class ParkingSpotServiceTests
         var result = await _service.UpdateAsync(4, new UpdateParkingSpotRequest { Code = "NEW" }, Ct);
 
         Assert.Equal(ErrorType.Conflict, result.Error);
+    }
+
+    // ---------- כל התנגשות על מקום נרשמת בלוג כ-Warning ----------
+
+    [Fact]
+    public async Task Create_CodeAlreadyExists_IsLoggedAsWarning()
+    {
+        _spots.Setup(s => s.CodeExistsAsync("G-09", null, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        await _service.CreateAsync(new CreateParkingSpotRequest { Code = "G-09" }, Ct);
+
+        AssertSingleWarning();
+    }
+
+    [Fact]
+    public async Task Create_ParallelDuplicateCode_IsLoggedAsWarning()
+    {
+        _spots.Setup(s => s.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DuplicateSpotCodeException("duplicate"));
+
+        await _service.CreateAsync(new CreateParkingSpotRequest { Code = "G-09" }, Ct);
+
+        AssertSingleWarning();
+    }
+
+    [Fact]
+    public async Task Update_ChangedByAnotherRequest_IsLoggedAsWarning()
+    {
+        _spots.Setup(s => s.GetByIdAsync(4, It.IsAny<CancellationToken>())).ReturnsAsync(new ParkingSpot { Id = 4, Code = "OLD" });
+        _spots.Setup(s => s.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ReservationConflictException("conflict"));
+
+        await _service.UpdateAsync(4, new UpdateParkingSpotRequest { Code = "NEW" }, Ct);
+
+        AssertSingleWarning();
+    }
+
+    [Fact]
+    public async Task Delete_WithFutureReservations_IsLoggedAsWarning()
+    {
+        _spots.Setup(s => s.GetByIdAsync(4, It.IsAny<CancellationToken>())).ReturnsAsync(new ParkingSpot { Id = 4, IsActive = true });
+        _spots.Setup(s => s.HasFutureReservationsAsync(4, Today, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        await _service.DeleteAsync(4, Ct);
+
+        AssertSingleWarning();
     }
 
     // ---------- הסרה ("מחיקה") ----------

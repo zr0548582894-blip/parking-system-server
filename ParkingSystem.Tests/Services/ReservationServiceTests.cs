@@ -164,6 +164,23 @@ public class ReservationServiceTests
     }
 
     [Fact]
+    public async Task Create_SpotAlreadyReserved_IsLoggedAsWarning()
+    {
+        var date = Today.AddDays(1);
+        SpotExists(ActiveSpot());
+        _reservations.Setup(r => r.IsSpotReservedAsync(SpotId, date, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        await _service.CreateAsync(UserId, Request(date), Ct);
+
+        _logger.Verify(l => l.Log(
+            LogLevel.Warning,
+            It.IsAny<EventId>(),
+            It.Is<It.IsAnyType>((state, _) => true),
+            It.IsAny<Exception?>(),
+            It.Is<Func<It.IsAnyType, Exception?, string>>((formatter, _) => true)), Times.Once);
+    }
+
+    [Fact]
     public async Task Create_UserAlreadyHasReservationThatDay_ReturnsConflict()
     {
         var date = Today.AddDays(1);

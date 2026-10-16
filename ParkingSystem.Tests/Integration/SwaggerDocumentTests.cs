@@ -9,7 +9,7 @@ public class SwaggerDocumentTests : IClassFixture<ApiTestHost>
 {
     private static readonly string[] ExpectedOperations =
     {
-        "POST /api/auth/register", "POST /api/auth/login",
+        "POST /api/users", "POST /api/tokens",
         "GET /api/features",
         "GET /api/parking-spots", "POST /api/parking-spots",
         "GET /api/parking-spots/{id}", "PUT /api/parking-spots/{id}", "DELETE /api/parking-spots/{id}",
@@ -17,7 +17,7 @@ public class SwaggerDocumentTests : IClassFixture<ApiTestHost>
         "GET /api/reservations/{id}", "DELETE /api/reservations/{id}", "GET /api/reservations/mine"
     };
 
-    private static readonly string[] OpenOperations = { "POST /api/auth/register", "POST /api/auth/login" };
+    private static readonly string[] OpenOperations = { "POST /api/users", "POST /api/tokens" };
 
     private readonly ApiTestHost _host;
 
@@ -128,7 +128,7 @@ public class SwaggerDocumentTests : IClassFixture<ApiTestHost>
 
         Assert.True(HasCode(Operation(doc, "DELETE /api/reservations/{id}"), "204"));
         Assert.True(HasCode(Operation(doc, "DELETE /api/parking-spots/{id}"), "409"));
-        Assert.True(HasCode(Operation(doc, "POST /api/auth/register"), "409"));
+        Assert.True(HasCode(Operation(doc, "POST /api/users"), "409"));
 
         // פעולות שמותרות לתפקיד מסוים בלבד מתעדות 403
         foreach (var key in new[] { "POST /api/parking-spots", "PUT /api/parking-spots/{id}", "DELETE /api/parking-spots/{id}",
