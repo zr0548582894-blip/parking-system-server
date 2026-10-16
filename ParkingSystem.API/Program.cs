@@ -89,3 +89,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// מאפשר לבדיקות להפעיל את השרת כולו בתוך תהליך הבדיקה (WebApplicationFactory)
+public partial class Program;
