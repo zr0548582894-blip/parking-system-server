@@ -17,6 +17,9 @@ public class AuthController : ApiControllerBase
     }
 
     /// <summary>הרשמת משתמש חדש. ההרשמה תמיד יוצרת עובד (Employee) ומחזירה token.</summary>
+    /// <response code="200">ההרשמה הצליחה, ומוחזר token לשליחה בבקשות הבאות.</response>
+    /// <response code="400">אחד או יותר מהשדות אינם תקינים. מוחזרת רשימת שגיאות לכל שדה.</response>
+    /// <response code="409">כתובת האימייל כבר רשומה במערכת.</response>
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
@@ -32,6 +35,9 @@ public class AuthController : ApiControllerBase
     }
 
     /// <summary>התחברות עם אימייל וסיסמה. מחזירה token לשליחה בכותרת Authorization.</summary>
+    /// <response code="200">ההתחברות הצליחה, ומוחזר token.</response>
+    /// <response code="400">אחד או יותר מהשדות אינם תקינים.</response>
+    /// <response code="401">האימייל או הסיסמה שגויים.</response>
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]

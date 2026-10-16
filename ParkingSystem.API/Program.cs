@@ -5,6 +5,7 @@ using NLog;
 using NLog.Web;
 using ParkingSystem.API.Extensions;
 using ParkingSystem.API.Middleware;
+using ParkingSystem.API.Swagger;
 using ParkingSystem.Core.Interfaces.Security;
 using ParkingSystem.Core.Options;
 using ParkingSystem.Data.Context;
@@ -42,9 +43,9 @@ builder.Services.AddControllers()
     })
     // enums (תפקיד, סטטוס, מיון) נשלחים ומתקבלים כטקסט קריא ("Admin") ולא כמספר
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// תיעוד ה-API (Swagger) עם כפתור Authorize ל-JWT. ההגדרה ב-Swagger/SwaggerServiceCollectionExtensions.cs
+builder.Services.AddSwaggerDocumentation();
 
 var app = builder.Build();
 
@@ -77,7 +78,7 @@ app.UseMiddleware<RequestLoggingMiddleware>();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options => options.DocumentTitle = "ParkingSystem API");
 }
 
 app.UseHttpsRedirection();

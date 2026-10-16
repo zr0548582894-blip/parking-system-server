@@ -2,6 +2,7 @@ using ParkingSystem.Core.Enums;
 
 namespace ParkingSystem.Core.DTOs.Auth;
 
+/// <summary>תשובת הרשמה או התחברות: ה-token לשליחה בכל בקשה מוגנת, ופרטי המשתמש.</summary>
 public class AuthResponse
 {
     public string Token { get; set; } = string.Empty;

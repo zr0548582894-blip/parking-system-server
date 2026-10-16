@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ParkingSystem.Core.DTOs.ParkingSpots;
 
+/// <summary>פרטי מקום חניה חדש: קוד ייחודי, קומה, ורשימת מזהי מאפיינים.</summary>
 public class CreateParkingSpotRequest
 {
     [Required]

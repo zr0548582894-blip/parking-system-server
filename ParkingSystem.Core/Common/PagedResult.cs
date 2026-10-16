@@ -1,5 +1,6 @@
 namespace ParkingSystem.Core.Common;
 
+/// <summary>עמוד אחד של תוצאות, יחד עם הסך הכול ומספר העמודים.</summary>
 public class PagedResult<T>
 {
     public IReadOnlyList<T> Items { get; init; } = Array.Empty<T>();

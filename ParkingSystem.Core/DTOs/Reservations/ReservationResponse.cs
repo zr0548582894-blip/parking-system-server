@@ -3,6 +3,7 @@ using ParkingSystem.Core.Enums;
 
 namespace ParkingSystem.Core.DTOs.Reservations;
 
+/// <summary>הזמנה של מקום חניה ליום אחד, כולל פרטי המקום והמזמין.</summary>
 public class ReservationResponse
 {
     public int Id { get; set; }

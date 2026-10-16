@@ -1,5 +1,6 @@
 namespace ParkingSystem.Core.DTOs.ParkingSpots;
 
+/// <summary>מקום חניה כפי שהוא מוצג ללקוח.</summary>
 public class ParkingSpotResponse
 {
     public int Id { get; set; }
@@ -8,6 +9,6 @@ public class ParkingSpotResponse
     public bool IsActive { get; set; }
     public List<FeatureResponse> Features { get; set; } = new();
 
-    // null כשלא התבקש תאריך; אחרת פנוי או תפוס באותו תאריך
+    /// <summary>פנוי (true) או תפוס/לא פעיל (false) בתאריך שהתבקש. null כשלא התבקש תאריך.</summary>
     public bool? IsAvailable { get; set; }
 }

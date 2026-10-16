@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ParkingSystem.Core.DTOs.Auth;
 
+/// <summary>אימייל וסיסמה להתחברות.</summary>
 public class LoginRequest
 {
     [Required]

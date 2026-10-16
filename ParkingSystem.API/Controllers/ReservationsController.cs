@@ -23,6 +23,12 @@ public class ReservationsController : ApiControllerBase
     /// הזמנת מקום חניה ליום אחד (עובד בלבד). אם משתמש אחר הקדים לתפוס את המקום, מוחזר 409 עם הודעה ברורה.
     /// זהות המזמין נלקחת מה-token ולא מגוף הבקשה.
     /// </summary>
+    /// <response code="201">ההזמנה נוצרה. כותרת Location מצביעה על GET /api/reservations/{id}.</response>
+    /// <response code="400">שדות לא תקינים, תאריך שעבר או רחוק מדי, או מקום שאינו פעיל.</response>
+    /// <response code="401">לא מחובר.</response>
+    /// <response code="403">הפעולה מותרת לעובד (Employee) בלבד.</response>
+    /// <response code="404">מקום החניה לא נמצא.</response>
+    /// <response code="409">המקום כבר תפוס בתאריך הזה (או שמשתמש אחר הקדים אותך), או שכבר יש לך הזמנה באותו יום.</response>
     [HttpPost]
     [Authorize(Roles = nameof(UserRole.Employee))]
     [ProducesResponseType(typeof(ReservationResponse), StatusCodes.Status201Created)]
@@ -47,6 +53,10 @@ public class ReservationsController : ApiControllerBase
     }
 
     /// <summary>הזמנה אחת לפי מזהה: הבעלים או מנהל בלבד.</summary>
+    /// <response code="200">פרטי ההזמנה.</response>
+    /// <response code="401">לא מחובר.</response>
+    /// <response code="403">ההזמנה אינה שלך.</response>
+    /// <response code="404">ההזמנה לא נמצאה.</response>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ReservationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
@@ -56,6 +66,10 @@ public class ReservationsController : ApiControllerBase
         OkOrFailure(await _reservationService.GetByIdAsync(id, CurrentUserId, CurrentUserRole, ct));
 
     /// <summary>ההזמנות של המשתמש המחובר, מהחדשה לישנה, בעמודים.</summary>
+    /// <response code="200">עמוד של ההזמנות שלך.</response>
+    /// <response code="400">פרמטרי pagination לא תקינים.</response>
+    /// <response code="401">לא מחובר.</response>
+    /// <response code="403">הפעולה מותרת לעובד (Employee) בלבד.</response>
     [HttpGet("mine")]
     [Authorize(Roles = nameof(UserRole.Employee))]
     [ProducesResponseType(typeof(PagedResult<ReservationResponse>), StatusCodes.Status200OK)]
@@ -73,6 +87,10 @@ public class ReservationsController : ApiControllerBase
     }
 
     /// <summary>כל ההזמנות במערכת, בעמודים (מנהל בלבד).</summary>
+    /// <response code="200">עמוד של כל ההזמנות.</response>
+    /// <response code="400">פרמטרי pagination לא תקינים.</response>
+    /// <response code="401">לא מחובר.</response>
+    /// <response code="403">הפעולה מותרת למנהל (Admin) בלבד.</response>
     [HttpGet]
     [Authorize(Roles = nameof(UserRole.Admin))]
     [ProducesResponseType(typeof(PagedResult<ReservationResponse>), StatusCodes.Status200OK)]
@@ -90,6 +108,10 @@ public class ReservationsController : ApiControllerBase
     }
 
     /// <summary>ביטול הזמנה: הבעלים או מנהל בלבד. ההזמנה נשמרת בהיסטוריה והמקום מתפנה.</summary>
+    /// <response code="204">ההזמנה בוטלה והמקום התפנה.</response>
+    /// <response code="401">לא מחובר.</response>
+    /// <response code="403">ההזמנה אינה שלך.</response>
+    /// <response code="404">ההזמנה לא נמצאה.</response>
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]

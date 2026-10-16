@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ParkingSystem.Core.DTOs.Auth;
 
+/// <summary>פרטי ההרשמה של משתמש חדש. ההרשמה תמיד יוצרת עובד (Employee).</summary>
 public class RegisterRequest
 {
     [Required]

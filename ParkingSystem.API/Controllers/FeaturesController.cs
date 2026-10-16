@@ -17,6 +17,8 @@ public class FeaturesController : ApiControllerBase
     }
 
     /// <summary>רשימת המאפיינים של מקומות החניה (נגיש, מקורה, טעינה לרכב חשמלי).</summary>
+    /// <response code="200">רשימת כל המאפיינים.</response>
+    /// <response code="401">לא מחובר: חסר token או שהוא אינו תקף.</response>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<FeatureResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]

@@ -5,6 +5,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>a2caf716-e08a-4af0-8415-59dc8ef40c4f</UserSecretsId>
+
+    <!-- מפיק קובץ XML מתגובות ה-/// שבקוד, ש-Swagger מציג כתיאורים.
+         1591 = "חסר תיעוד XML": לא נדרש לכל מחלקה פנימית, רק למה שמוצג ב-Swagger -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
