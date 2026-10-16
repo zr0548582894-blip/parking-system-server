@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using NLog;
@@ -30,8 +31,17 @@ if (builder.Environment.IsDevelopment() && nlogConfiguration is not null)
 // כל רישום ה-DI (עם ה-lifetimes וההסברים) נמצא ב-Extensions/ServiceCollectionExtensions.cs
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddApplicationServices(builder.Configuration);
+builder.Services.AddJwtAuthentication();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // בדיקת ה-ModelState נעשית במפורש בתחילת כל פעולה (ApiControllerBase.InvalidModel),
+        // כדי שתשובת ה-400 תהיה אחידה (ProblemDetails עם מזהה בקשה) ולא תלויה בפילטר האוטומטי
+        options.SuppressModelStateInvalidFilter = true;
+    })
+    // enums (תפקיד, סטטוס, מיון) נשלחים ומתקבלים כטקסט קריא ("Admin") ולא כמספר
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -72,6 +82,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// הסדר חשוב: קודם מזהים מי המשתמש (Authentication), ורק אחר כך בודקים מה מותר לו (Authorization)
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

@@ -65,7 +65,7 @@ public class ReservationServiceTests
                 saved = reservation;
             })
             .Returns(Task.CompletedTask);
-        _reservations.Setup(r => r.GetByIdAsync(77, It.IsAny<CancellationToken>())).ReturnsAsync(() =>
+        _reservations.Setup(r => r.GetDetailsAsync(77, It.IsAny<CancellationToken>())).ReturnsAsync(() =>
         {
             saved.User = new User { Id = UserId, FullName = "Dana Levi" };
             saved.ParkingSpot = spot;
@@ -191,7 +191,7 @@ public class ReservationServiceTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorType.Conflict, result.Error);
-        _reservations.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _reservations.Verify(r => r.GetDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _logger.Verify(l => l.Log(
             LogLevel.Warning,
             It.IsAny<EventId>(),
@@ -261,6 +261,57 @@ public class ReservationServiceTests
 
         Assert.True(result.IsSuccess);
         _reservations.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // ---------- הזמנה אחת ----------
+
+    private void DetailsExist(int ownerId) =>
+        _reservations.Setup(r => r.GetDetailsAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(new Reservation
+        {
+            Id = 10,
+            UserId = ownerId,
+            Date = Today,
+            User = new User { Id = ownerId, FullName = "Dana Levi" },
+            ParkingSpot = new ParkingSpot { Code = "G-01" }
+        });
+
+    [Fact]
+    public async Task GetById_ByOwner_ReturnsTheReservation()
+    {
+        DetailsExist(ownerId: UserId);
+
+        var result = await _service.GetByIdAsync(10, UserId, UserRole.Employee, Ct);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("G-01", result.Value!.ParkingSpot.Code);
+    }
+
+    [Fact]
+    public async Task GetById_ByAdminForSomeoneElse_IsAllowed()
+    {
+        DetailsExist(ownerId: UserId);
+
+        var result = await _service.GetByIdAsync(10, userId: 999, UserRole.Admin, Ct);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task GetById_ByAnotherEmployee_ReturnsForbidden()
+    {
+        DetailsExist(ownerId: UserId);
+
+        var result = await _service.GetByIdAsync(10, userId: 999, UserRole.Employee, Ct);
+
+        Assert.Equal(ErrorType.Forbidden, result.Error);
+    }
+
+    [Fact]
+    public async Task GetById_Missing_ReturnsNotFound()
+    {
+        var result = await _service.GetByIdAsync(404, UserId, UserRole.Employee, Ct);
+
+        Assert.Equal(ErrorType.NotFound, result.Error);
     }
 
     // ---------- רשימות ----------

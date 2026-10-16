@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+using ParkingSystem.API.Extensions;
 
 namespace ParkingSystem.API.Middleware;
 
@@ -68,19 +68,10 @@ public class ExceptionHandlingMiddleware
             }
         }
 
-        var problem = new ProblemDetails
-        {
-            Status = status,
-            Title = status >= StatusCodes.Status500InternalServerError ? UnexpectedErrorTitle : BadRequestTitle,
-            Instance = context.Request.Path
-        };
-        problem.Extensions["correlationId"] = correlationId;
-
         context.Response.Headers.Clear();
-        context.Response.StatusCode = status;
-        context.Response.Headers[CorrelationIdMiddleware.HeaderName] = correlationId;
 
-        await context.Response.WriteAsJsonAsync(
-            problem, options: null, contentType: "application/problem+json", context.RequestAborted);
+        await context.WriteProblemAsync(
+            status,
+            status >= StatusCodes.Status500InternalServerError ? UnexpectedErrorTitle : BadRequestTitle);
     }
 }

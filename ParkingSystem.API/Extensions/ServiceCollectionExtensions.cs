@@ -1,4 +1,8 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using ParkingSystem.Core.Interfaces.Repositories;
 using ParkingSystem.Core.Interfaces.Security;
 using ParkingSystem.Core.Interfaces.Services;
@@ -64,6 +68,60 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFeatureService, FeatureService>();
         services.AddScoped<IParkingSpotService, ParkingSpotService>();
         services.AddScoped<IReservationService, ReservationService>();
+
+        return services;
+    }
+
+    // אימות (מי אתה?) והרשאות (מה מותר לך?) לפי JWT
+    public static IServiceCollection AddJwtAuthentication(this IServiceCollection services)
+    {
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+
+        // ההגדרות נקראות מ-JwtOptions (אותן הגדרות שבהן JwtTokenService חותם), רק כשצריך אותן.
+        // כך המפתח הסודי לא נדרש בזמן הרישום, ואף פעם לא כתוב בקוד
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IOptions<JwtOptions>>((bearer, jwtOptions) =>
+            {
+                var jwt = jwtOptions.Value;
+
+                // בלי "קסם": שמות ה-claims נשארים כמו שהם ב-token (sub, email, role)
+                bearer.MapInboundClaims = false;
+
+                bearer.TokenValidationParameters = new TokenValidationParameters
+                {
+                    // החתימה: רק token שנחתם במפתח של השרת מתקבל
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
+                    ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
+
+                    ValidateIssuer = true,
+                    ValidIssuer = jwt.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = jwt.Audience,
+
+                    // תוקף: token שפג תוקפו נדחה (עם סבלנות של 30 שניות להפרשי שעון)
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.FromSeconds(30),
+
+                    // אילו claims קובעים את זהות המשתמש ואת התפקיד שלו
+                    NameClaimType = "sub",
+                    RoleClaimType = "role"
+                };
+
+                // תשובות 401 ו-403 באותו JSON אחיד כמו כל שגיאה אחרת
+                bearer.Events = new JwtBearerEvents
+                {
+                    OnChallenge = async context =>
+                    {
+                        context.HandleResponse();
+                        await context.HttpContext.WriteProblemAsync(StatusCodes.Status401Unauthorized, "נדרשת התחברות.");
+                    },
+                    OnForbidden = context =>
+                        context.HttpContext.WriteProblemAsync(StatusCodes.Status403Forbidden, "אין לך הרשאה לבצע פעולה זו.")
+                };
+            });
+
+        services.AddAuthorization();
 
         return services;
     }

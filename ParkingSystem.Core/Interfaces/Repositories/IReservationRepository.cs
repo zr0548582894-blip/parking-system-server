@@ -9,6 +9,9 @@ public interface IReservationRepository : IRepository
     // עם מעקב, כולל המקום והמשתמש, לצורך ביטול
     Task<Reservation?> GetByIdAsync(int id, CancellationToken ct);
 
+    // ללא מעקב, לקריאה בלבד, כולל המשתמש, המקום וה-Features שלו
+    Task<Reservation?> GetDetailsAsync(int id, CancellationToken ct);
+
     // הזמנה פעילה בלבד נחשבת "תפוסה"
     Task<bool> IsSpotReservedAsync(int spotId, DateOnly date, CancellationToken ct);
     Task<bool> UserHasReservationAsync(int userId, DateOnly date, CancellationToken ct);

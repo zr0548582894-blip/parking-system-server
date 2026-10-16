@@ -24,6 +24,7 @@ public class ReservationService : IReservationService
     private const string LostTheRaceMessage = "המקום נתפס על ידי משתמש אחר. נסי מקום אחר.";
     private const string ReservationNotFoundMessage = "ההזמנה לא נמצאה.";
     private const string NotAllowedToCancelMessage = "אין לך הרשאה לבטל הזמנה זו.";
+    private const string NotAllowedToViewMessage = "אין לך הרשאה לצפות בהזמנה זו.";
 
     private readonly IReservationRepository _reservations;
     private readonly IParkingSpotRepository _spots;
@@ -94,8 +95,8 @@ public class ReservationService : IReservationService
             return Result<ReservationResponse>.Fail(created.Error!.Value, created.Message!);
         }
 
-        // טוענים את ההזמנה מחדש, כולל המשתמש והמקום, כדי להחזיר תשובה מלאה
-        var reservation = await _reservations.GetByIdAsync(created.Value, ct);
+        // טוענים את ההזמנה מחדש (קריאה בלבד), כולל המשתמש והמקום, כדי להחזיר תשובה מלאה
+        var reservation = await _reservations.GetDetailsAsync(created.Value, ct);
 
         return Result<ReservationResponse>.Success(_mapper.Map<ReservationResponse>(reservation));
     }
@@ -108,8 +109,7 @@ public class ReservationService : IReservationService
             return Result.Fail(ErrorType.NotFound, ReservationNotFoundMessage);
         }
 
-        // רק הבעלים או Admin
-        if (role != UserRole.Admin && reservation.UserId != userId)
+        if (!CanAccess(reservation, userId, role))
         {
             return Result.Fail(ErrorType.Forbidden, NotAllowedToCancelMessage);
         }
@@ -125,6 +125,23 @@ public class ReservationService : IReservationService
         await _reservations.SaveChangesAsync(ct);
 
         return Result.Success();
+    }
+
+    public async Task<Result<ReservationResponse>> GetByIdAsync(
+        int reservationId, int userId, UserRole role, CancellationToken ct)
+    {
+        var reservation = await _reservations.GetDetailsAsync(reservationId, ct);
+        if (reservation is null)
+        {
+            return Result<ReservationResponse>.Fail(ErrorType.NotFound, ReservationNotFoundMessage);
+        }
+
+        if (!CanAccess(reservation, userId, role))
+        {
+            return Result<ReservationResponse>.Fail(ErrorType.Forbidden, NotAllowedToViewMessage);
+        }
+
+        return Result<ReservationResponse>.Success(_mapper.Map<ReservationResponse>(reservation));
     }
 
     public async Task<Result<PagedResult<ReservationResponse>>> GetMineAsync(
@@ -179,6 +196,10 @@ public class ReservationService : IReservationService
 
         return Result<int>.Success(reservation.Id);
     }
+
+    // כלל הגישה להזמנה, לצפייה ולביטול: רק הבעלים או Admin
+    private static bool CanAccess(Reservation reservation, int userId, UserRole role) =>
+        role == UserRole.Admin || reservation.UserId == userId;
 
     private Result<PagedResult<ReservationResponse>> ToPagedResponse(PagedResult<Reservation> page) =>
         Result<PagedResult<ReservationResponse>>.Success(new PagedResult<ReservationResponse>

@@ -21,6 +21,14 @@ public class ReservationRepository : Repository, IReservationRepository
             .Include(r => r.ParkingSpot).ThenInclude(p => p.Features)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
+    // קריאה בלבד: ללא מעקב
+    public Task<Reservation?> GetDetailsAsync(int id, CancellationToken ct) =>
+        Context.Reservations
+            .AsNoTracking()
+            .Include(r => r.User)
+            .Include(r => r.ParkingSpot).ThenInclude(p => p.Features)
+            .FirstOrDefaultAsync(r => r.Id == id, ct);
+
     // רק הזמנה פעילה נחשבת "תפוסה". הזמנה שבוטלה לא חוסמת
     public Task<bool> IsSpotReservedAsync(int spotId, DateOnly date, CancellationToken ct) =>
         Context.Reservations.AnyAsync(

@@ -13,6 +13,9 @@ public interface IReservationService
     // ביטול מותר לבעלים או ל-Admin בלבד
     Task<Result> CancelAsync(int reservationId, int userId, UserRole role, CancellationToken ct);
 
+    // הזמנה אחת: הבעלים או Admin בלבד
+    Task<Result<ReservationResponse>> GetByIdAsync(int reservationId, int userId, UserRole role, CancellationToken ct);
+
     Task<Result<PagedResult<ReservationResponse>>> GetMineAsync(int userId, PaginationQuery query, CancellationToken ct);
     Task<Result<PagedResult<ReservationResponse>>> GetAllAsync(PaginationQuery query, CancellationToken ct);
 }
