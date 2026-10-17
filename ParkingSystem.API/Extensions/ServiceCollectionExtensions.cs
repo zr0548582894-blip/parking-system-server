@@ -23,8 +23,9 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
     {
         // DbContext: Scoped. אינו thread-safe ומחזיק מעקב אחרי ישויות, ולכן instance נפרד לכל בקשה
+        // Normalize: מקבל גם כתובת בצורת URL (postgres://...) כמו ש-Render נותן, ומשאיר מחרוזת רגילה כמו שהיא
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("Default")));
+            options.UseNpgsql(PostgresConnectionString.Normalize(configuration.GetConnectionString("Default"))));
 
         // Repositories: Scoped, כי הם תלויים ב-DbContext. Singleton שמחזיק DbContext היה באג:
         // ה-DbContext היה נתפס לכל חיי האפליקציה ומשותף בין בקשות שונות
@@ -122,6 +123,60 @@ public static class ServiceCollectionExtensions
             });
 
         services.AddAuthorization();
+
+        return services;
+    }
+
+    public const string ClientCorsPolicy = "Client";
+
+    // CORS: מתיר רק ללקוח (React) שכתובתו מוגדרת ב-Cors:AllowedOrigins (כמה כתובות מופרדות בפסיק).
+    // בלי הגדרה, אף אתר אחר לא יכול לקרוא ל-API מהדפדפן. הקריאה לקונפיגורציה נעשית בזמן ההפעלה, לא בזמן הרישום
+    public static IServiceCollection AddClientCors(this IServiceCollection services)
+    {
+        services.AddCors();
+
+        services.AddOptions<Microsoft.AspNetCore.Cors.Infrastructure.CorsOptions>()
+            .Configure<IConfiguration>((cors, configuration) =>
+            {
+                var origins = (configuration["Cors:AllowedOrigins"] ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(origin => origin.TrimEnd('/'))
+                    .ToArray();
+
+                cors.AddPolicy(ClientCorsPolicy, policy =>
+                {
+                    if (origins.Length == 0)
+                    {
+                        return;
+                    }
+
+                    policy.WithOrigins(origins)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        // ללא זה הדפדפן מסתיר מה-JavaScript את כותרת Location ואת מזהה הבקשה
+                        .WithExposedHeaders("Location", CorrelationIdHeader);
+                });
+            });
+
+        return services;
+    }
+
+    private const string CorrelationIdHeader = "X-Correlation-Id";
+
+    // השרת רץ מאחורי proxy (ב-Render ה-HTTPS נעצר ב-load balancer, וה-API מקבל HTTP).
+    // קוראים את הכותרות X-Forwarded-*, כדי שהכתובת בכותרת Location תהיה https עם הדומיין האמיתי
+    public static IServiceCollection AddProxyHeaders(this IServiceCollection services)
+    {
+        services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                                       | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+                                       | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedHost;
+
+            // הכתובת של ה-proxy של Render אינה קבועה, ולכן לא מגבילים לרשימה. ההשפעה מוגבלת לכתובת ה-Location בלבד
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
 
         return services;
     }

@@ -13,6 +13,14 @@ using ParkingSystem.Data.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ב-Render (ובכל פלטפורמת ענן) הפורט שהשרת צריך להאזין לו מגיע במשתנה PORT, ועל כל הכתובות (0.0.0.0).
+// מקומית, כשהמשתנה לא קיים, נשארות הכתובות מ-launchSettings.json
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // NLog מחליף את מנגנון הלוגים המובנה, אבל הקוד ממשיך לכתוב דרך ILogger הרגיל.
 // ההגדרות (יעדים, פורמט, רמות) נמצאות ב-nlog.config.
 // מנקים את ספקי הלוגים המובנים, כדי שכל הלוגים יעברו דרך NLog בלבד ובפורמט אחד
@@ -33,6 +41,8 @@ if (builder.Environment.IsDevelopment() && nlogConfiguration is not null)
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddJwtAuthentication();
+builder.Services.AddClientCors();    // מתיר ללקוח ה-React (Cors:AllowedOrigins) לקרוא ל-API מהדפדפן
+builder.Services.AddProxyHeaders();  // השרת רץ מאחורי proxy (Render), ולכן קורא X-Forwarded-*
 
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
@@ -69,25 +79,41 @@ app.Logger.LogInformation("ParkingSystem API is starting in the {Environment} en
 
 // Configure the HTTP request pipeline.
 
+// קודם כל קוראים את כותרות ה-proxy, כדי שהסכמה (https) והדומיין יהיו נכונים לכל מה שאחריהן
+app.UseForwardedHeaders();
+
 // הסדר חשוב: טיפול בשגיאות ראשון, כדי שיתפוס חריגה מכל מה שמגיע אחריו.
 // אחריו מזהה הבקשה, ורק אז לוג הבקשות (כדי שכל שורת לוג תכלול את המזהה)
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
-if (app.Environment.IsDevelopment())
+// Swagger פעיל בכל סביבה (גם ב-Render), כי הוא חלק מהדרישות. אפשר לכבות עם Swagger:Enabled=false
+if (app.Configuration.GetValue("Swagger:Enabled", true))
 {
     app.UseSwagger();
     app.UseSwaggerUI(options => options.DocumentTitle = "ParkingSystem API");
 }
 
-app.UseHttpsRedirection();
+// הפניה ל-HTTPS רק בפיתוח המקומי. בענן ה-HTTPS נעצר ב-load balancer (Render כבר מפנה מ-HTTP ל-HTTPS)
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+// CORS לפני האימות, כדי שבקשות preflight (OPTIONS) של הדפדפן יענו בלי token
+app.UseCors(ParkingSystem.API.Extensions.ServiceCollectionExtensions.ClientCorsPolicy);
 
 // הסדר חשוב: קודם מזהים מי המשתמש (Authentication), ורק אחר כך בודקים מה מותר לו (Authorization)
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// בדיקת חיים לפלטפורמת הענן (Render). פתוחה, לא מכילה מידע, ולא מופיעה ב-Swagger
+app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
+    .AllowAnonymous()
+    .ExcludeFromDescription();
 
 app.Run();
 

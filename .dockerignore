@@ -1,0 +1,17 @@
+# לא נכנס לתמונת ה-Docker: קבצי build, בדיקות, לוגים, סודות ומטא-דאטה של Git
+**/bin/
+**/obj/
+**/logs/
+.git/
+.gitignore
+.vs/
+.vscode/
+**/*.user
+**/secrets.json
+**/.env
+ParkingSystem.Tests/
+README.md
+docker-compose.yml
+render.yaml
+Dockerfile
+.dockerignore

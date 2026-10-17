@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 
@@ -16,6 +17,18 @@ public sealed class ApiTestHost : IAsyncLifetime
     private WebApplicationFactory<Program>? _factory;
 
     public HttpClient CreateClient() => _factory!.CreateClient();
+
+    // שרת נוסף מאותה בסיס נתונים, עם סביבה או הגדרות אחרות (למשל Production, או Swagger כבוי).
+    // לא עוקב אחרי הפניות, כדי שאפשר יהיה לבדוק שאין הפניה מיותרת ל-HTTPS
+    public HttpClient CreateClient(string environment, IDictionary<string, string?>? settings = null) =>
+        _factory!.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment(environment);
+            if (settings is not null)
+            {
+                builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(settings));
+            }
+        }).CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
     public async Task InitializeAsync()
     {
@@ -36,6 +49,7 @@ public sealed class ApiTestHost : IAsyncLifetime
                     ["Jwt:Audience"] = "e2e-audience",
                     ["Jwt:ExpiryMinutes"] = "30",
                     ["ReservationRules:MaxDaysAhead"] = "30",
+                    ["Cors:AllowedOrigins"] = "http://localhost:5173, https://parking-client.example.com/",
                     ["SeedUsers:AdminPassword"] = AdminPassword,
                     ["SeedUsers:EmployeePassword"] = EmployeePassword
                 })));

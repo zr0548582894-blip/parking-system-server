@@ -1,0 +1,41 @@
+# Render Blueprint לשרת: שירות Web (Docker) ובסיס נתונים PostgreSQL.
+# יצירה: ב-Render לוחצים New > Blueprint ובוחרים את ה-repository הזה.
+# הסודות אינם בקובץ: Render מייצר את מפתח ה-JWT לבד, ומבקש להזין את שאר הערכים בזמן היצירה (sync: false).
+
+services:
+  - type: web
+    name: parking-system-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: frankfurt
+    healthCheckPath: /healthz
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # כתובת בסיס הנתונים של Render. השרת יודע להמיר אותה לפורמט של Npgsql
+      - key: ConnectionStrings__Default
+        fromDatabase:
+          name: parking-system-db
+          property: connectionString
+      # מפתח חתימה ל-JWT, אקראי באורך 256 ביט, נוצר על ידי Render ולא נשמר ב-Git
+      - key: Jwt__SecretKey
+        generateValue: true
+      # סיסמאות משתמשי הדמו: מוזנות ידנית בזמן יצירת ה-Blueprint (אחרת המשתמשים לא ייווצרו)
+      - key: SeedUsers__AdminPassword
+        sync: false
+      - key: SeedUsers__EmployeePassword
+        sync: false
+      # הכתובת של לקוח ה-React ב-Render, למשל https://parking-system-client.onrender.com (בלי / בסוף).
+      # ידוע רק אחרי שהלקוח נוצר, ולכן מעדכנים אותה אחר כך ב-Environment של השירות
+      - key: Cors__AllowedOrigins
+        sync: false
+
+databases:
+  - name: parking-system-db
+    plan: free
+    region: frankfurt
+    databaseName: parking_system
+    user: parking_app
+    postgresMajorVersion: "17"
