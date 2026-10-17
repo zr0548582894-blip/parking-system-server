@@ -70,7 +70,8 @@ API ──► Service ──► Core ◄── Data
 - **Dependency Injection:** כל הרישום בקובץ אחד, `ParkingSystem.API/Extensions/ServiceCollectionExtensions.cs`:
   - `DbContext`, ה-repositories והשירותים: **Scoped** (אינסטנס לכל בקשה).
   - מצפין הסיסמאות, יוצר ה-token והשעון: **Singleton** (חסרי מצב ואינם תלויים ב-`DbContext`).
-- **Middleware**, בסדר הזה: כותרות proxy (`X-Forwarded-*`) ← טיפול גלובלי בשגיאות ← `CorrelationId` ← לוג בקשות ← Swagger ← הפניה ל-HTTPS (בפיתוח בלבד) ← CORS ← Authentication ← Authorization ← Controllers. בנוסף, `GET /healthz` לבדיקת חיים בענן.
+  - **למה לא להפוך שירות ל-Singleton:** Singleton נוצר פעם אחת ונשאר חי כל חיי האפליקציה. אם הוא מחזיק בתוכו שירות Scoped (כמו DbContext), ה-DbContext נשאר חי איתו לאורך כל הבקשות: כמה בקשות משתמשות באותו DbContext במקביל (הוא אינו בטוח ל-threads), הנתונים במטמון שלו מתיישנים, וגם ה-concurrency token נשבר. לכן רק רכיבים חסרי מצב שאינם תלויים ב-DbContext רשומים כ-Singleton.
+- **Middleware**, בסדר הזה: כותרות proxy (`X-Forwarded-*`) ← טיפול גלובלי בשגיאות ← `CorrelationId` ← לוג בקשות ← Swagger ← הפניה ל-HTTPS (בפיתוח בלבד) ← CORS ← הגבלת קצב להרשמה והתחברות ← Authentication ← Authorization ← Controllers. בנוסף, `GET /healthz` לבדיקת חיים בענן.
 
 מבנה התיקיות:
 
