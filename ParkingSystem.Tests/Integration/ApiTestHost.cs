@@ -49,6 +49,8 @@ public sealed class ApiTestHost : IAsyncLifetime
                     ["Jwt:Audience"] = "e2e-audience",
                     ["Jwt:ExpiryMinutes"] = "30",
                     ["ReservationRules:MaxDaysAhead"] = "30",
+                    // הבדיקות מתחברות עשרות פעמים מאותה כתובת, ולכן ההגבלה כאן גבוהה. בדיקה ייעודית מנמיכה אותה
+                    ["RateLimiting:AuthPermitLimit"] = "100000",
                     ["Cors:AllowedOrigins"] = "http://localhost:5173, https://parking-client.example.com/",
                     ["SeedUsers:AdminPassword"] = AdminPassword,
                     ["SeedUsers:EmployeePassword"] = EmployeePassword

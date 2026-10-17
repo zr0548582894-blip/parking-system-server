@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ParkingSystem.Core.Validation;
 
 namespace ParkingSystem.Core.DTOs.Auth;
 
@@ -15,7 +16,8 @@ public class RegisterRequest
     public string Email { get; set; } = string.Empty;
 
     [Required]
-    // BCrypt מתעלם מכל מה שאחרי 72 בייטים, ולכן לא מקבלים סיסמה ארוכה יותר
+    // BCrypt מתעלם מכל מה שאחרי 72 בייטים (לא תווים), ולכן מגבילים לפי בייטים
     [StringLength(72, MinimumLength = 8)]
+    [MaxUtf8Bytes(72)]
     public string Password { get; set; } = string.Empty;
 }

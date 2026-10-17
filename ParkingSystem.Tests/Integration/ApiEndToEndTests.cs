@@ -104,8 +104,8 @@ public class ApiEndToEndTests : IClassFixture<ApiTestHost>
         var key = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
             System.Text.Encoding.UTF8.GetBytes("end-to-end-test-only-key-0123456789-abcdefgh"));
         var token = handler.WriteToken(new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
-            issuer: "ParkingSystem",
-            audience: "ParkingSystem.Client",
+            issuer: "e2e-issuer",       // כמו ב-ApiTestHost, אחרת הטוקן נדחה כבר באימות ולא בודק את התיקון
+            audience: "e2e-audience",
             claims: new[]
             {
                 new System.Security.Claims.Claim("sub", "987654"),
@@ -118,6 +118,67 @@ public class ApiEndToEndTests : IClassFixture<ApiTestHost>
         var response = await ReserveAsync(WithToken(token), 1, DayFromToday(3));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        // הטוקן עצמו תקין, ולכן ה-401 מגיע מהשירות (ולא מאימות הטוקן)
+        Assert.Contains("המשתמש לא נמצא", (await ReadJsonAsync(response)).GetProperty("title").GetString());
+    }
+
+    // ---------- הגבלת קצב להתחברות ----------
+
+    [PostgresFact]
+    public async Task Login_AfterTooManyAttempts_Returns429AsUniformJsonWithRetryAfter()
+    {
+        var client = _host.CreateClient("Development", new Dictionary<string, string?>
+        {
+            ["RateLimiting:AuthPermitLimit"] = "3",
+            ["RateLimiting:AuthWindowSeconds"] = "60"
+        });
+        var attempt = new { email = ApiTestHost.AdminEmail, password = "wrong-password" };
+
+        for (var i = 0; i < 3; i++)
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/tokens", attempt)).StatusCode);
+        }
+
+        var blocked = await client.PostAsJsonAsync("/api/tokens", attempt);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, blocked.StatusCode);
+        Assert.Equal("application/problem+json", blocked.Content.Headers.ContentType?.MediaType);
+        Assert.True(blocked.Headers.Contains("Retry-After"));
+        var body = await ReadJsonAsync(blocked);
+        Assert.Equal(429, body.GetProperty("status").GetInt32());
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("correlationId").GetString()));
+    }
+
+    [PostgresFact]
+    public async Task RateLimit_DoesNotAffectOtherEndpoints()
+    {
+        var limited = _host.CreateClient("Development", new Dictionary<string, string?>
+        {
+            ["RateLimiting:AuthPermitLimit"] = "1"
+        });
+        await limited.PostAsJsonAsync("/api/tokens", new { email = "a@b.c", password = "x" });
+        Assert.Equal(HttpStatusCode.TooManyRequests,
+            (await limited.PostAsJsonAsync("/api/tokens", new { email = "a@b.c", password = "x" })).StatusCode);
+
+        var (employee, _) = await NewEmployeeAsync();
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.Equal(HttpStatusCode.OK, (await employee.GetAsync("/api/features")).StatusCode);
+        }
+    }
+
+    [PostgresFact]
+    public async Task Login_WithinTheLimit_StillSucceeds()
+    {
+        var client = _host.CreateClient("Development", new Dictionary<string, string?>
+        {
+            ["RateLimiting:AuthPermitLimit"] = "3"
+        });
+
+        var response = await client.PostAsJsonAsync("/api/tokens",
+            new { email = ApiTestHost.EmployeeEmail, password = ApiTestHost.EmployeePassword });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     // ---------- אימות (401) ----------

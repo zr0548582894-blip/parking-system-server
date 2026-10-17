@@ -59,6 +59,29 @@ public class DtoValidationTests
         Assert.True(HasErrorOn(Validate(request), nameof(RegisterRequest.Password)));
     }
 
+    [Theory]
+    [InlineData("א", 37)]       // עברית: 2 בייטים לתו, 74 בייטים
+    [InlineData("😀", 19)]      // אימוג'י: 4 בייטים לתו, 76 בייטים
+    public void Register_PasswordOverTheByteLimit_IsRejectedEvenIfShortInCharacters(string unit, int count)
+    {
+        var request = ValidRegister();
+        request.Password = string.Concat(Enumerable.Repeat(unit, count));
+
+        Assert.True(request.Password.Length <= 72);
+        Assert.True(HasErrorOn(Validate(request), nameof(RegisterRequest.Password)));
+    }
+
+    [Theory]
+    [InlineData("א", 36)]       // בדיוק 72 בייטים
+    [InlineData("😀", 18)]
+    public void Register_PasswordOfExactly72Bytes_IsAccepted(string unit, int count)
+    {
+        var request = ValidRegister();
+        request.Password = string.Concat(Enumerable.Repeat(unit, count));
+
+        Assert.False(HasErrorOn(Validate(request), nameof(RegisterRequest.Password)));
+    }
+
     [Fact]
     public void Register_PasswordOfExactlyMaxLength_IsAccepted()
     {

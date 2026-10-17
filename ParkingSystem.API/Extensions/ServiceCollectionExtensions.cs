@@ -173,7 +173,8 @@ public static class ServiceCollectionExtensions
                                        | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
                                        | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedHost;
 
-            // הכתובת של ה-proxy של Render אינה קבועה, ולכן לא מגבילים לרשימה. ההשפעה מוגבלת לכתובת ה-Location בלבד
+            // הכתובת של ה-proxy של Render אינה קבועה, ולכן לא מגבילים לרשימה. ההשפעה: כתובת ה-Location וכתובת ה-IP שלפיה מוגבל קצב ההתחברות.
+            // ForwardLimit ברירת המחדל (1) לוקח רק את הערך האחרון, שה-proxy עצמו הוסיף, ולכן כותרת מזויפת מהלקוח לא עוקפת את ההגבלה
             options.KnownNetworks.Clear();
             options.KnownProxies.Clear();
         });

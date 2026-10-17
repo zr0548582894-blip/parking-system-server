@@ -4,6 +4,20 @@ namespace ParkingSystem.Tests.Security;
 
 public class BcryptPasswordHasherTests
 {
+    // מתעד עובדה שהוכחה בביקורת: BCrypt מתעלם ממה שאחרי 72 בייטים (לא תווים).
+    // לכן הרשמה מגבילה סיסמה ל-72 בייטים (ראו DtoValidationTests)
+    [Theory]
+    [InlineData("a", 72)]
+    [InlineData("א", 36)]
+    [InlineData("😀", 18)]
+    public void Hasher_IgnoresEverythingAfter72Bytes(string unit, int count)
+    {
+        var hasher = new BcryptPasswordHasher();
+        var prefix = string.Concat(Enumerable.Repeat(unit, count));
+
+        Assert.True(hasher.Verify(prefix + "Y", hasher.Hash(prefix + "X")));
+    }
+
     private readonly BcryptPasswordHasher _hasher = new();
 
     [Fact]

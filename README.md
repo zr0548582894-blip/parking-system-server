@@ -206,8 +206,8 @@ docker compose up -d
 
 | Method | נתיב | מי מורשה | הצלחה | שגיאות אפשריות |
 |---|---|---|---|---|
-| POST | `/api/users` | פתוח | 200 + token | 400, 409 (אימייל קיים) |
-| POST | `/api/tokens` | פתוח | 200 + token | 400, 401 |
+| POST | `/api/users` | פתוח | 200 + token | 400, 409 (אימייל קיים), 429 |
+| POST | `/api/tokens` | פתוח | 200 + token | 400, 401, 429 |
 | GET | `/api/features` | מחובר | 200 | 401 |
 | GET | `/api/parking-spots` | מחובר | 200 (עמוד) | 400, 401 |
 | GET | `/api/parking-spots/{id}` | מחובר | 200 | 401, 404 |
@@ -261,7 +261,7 @@ Content-Type: application/json
 dotnet test ParkingSystem.sln
 ```
 
-**217 בדיקות** (xUnit + Moq):
+**227 בדיקות** (xUnit + Moq):
 
 | קבוצה | מה נבדק |
 |---|---|
@@ -272,14 +272,14 @@ dotnet test ParkingSystem.sln
 | **אינטגרציה (PostgreSQL)** | התחרות: שני `DbContext`, אינדקסים ייחודיים, ו-8 בקשות מקבילות; בדיקות HTTP מקצה לקצה; מסמך ה-Swagger; מוכנות לענן (CORS, כותרות proxy, `/healthz`, Production) |
 
 ### בדיקות שדורשות PostgreSQL
-**48 בדיקות** (אינטגרציה, HTTP מקצה לקצה, Swagger ומוכנות לענן) מפעילות את ה-API או את בסיס הנתונים בפועל, ולכן דורשות PostgreSQL זמין:
+**51 בדיקות** (אינטגרציה, HTTP מקצה לקצה, Swagger ומוכנות לענן) מפעילות את ה-API או את בסיס הנתונים בפועל, ולכן דורשות PostgreSQL זמין:
 
 ```bash
 docker compose up -d      # לפני dotnet test
 ```
 
 - כל מחלקת בדיקות יוצרת **בסיס נתונים זמני משלה**, מחילה עליו את ה-migrations האמיתיים, ומוחקת אותו בסיום. **בסיס נתוני הפיתוח שלכם לא נפגע.**
-- אם PostgreSQL **לא זמין**, 48 הבדיקות האלה **מדלגות** (`Skipped`) עם הודעה ברורה, ו-169 הבדיקות האחרות עוברות. הן לא נכשלות.
+- אם PostgreSQL **לא זמין**, 51 הבדיקות האלה **מדלגות** (`Skipped`) עם הודעה ברורה, ו-176 הבדיקות האחרות עוברות. הן לא נכשלות.
 - כברירת מחדל הבדיקות מתחברות ל-`Host=localhost;Port=5432;Username=postgres` (בסיס הנתונים מ-`docker-compose`). לשימוש בשרת אחר, הגדירו את משתנה הסביבה `PARKING_TEST_POSTGRES` למחרוזת חיבור שמאפשרת `CREATE DATABASE`.
 
 ---
@@ -296,6 +296,7 @@ docker compose up -d      # לפני dotnet test
 | `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiryMinutes` | `appsettings.json` (אינן סוד) |
 | `ReservationRules:MaxDaysAhead` | `appsettings.json` |
 | `Cors:AllowedOrigins` | כתובת הלקוח (כמה כתובות מופרדות בפסיק). בפיתוח: `http://localhost:5173` ב-`appsettings.Development.json`. בענן: משתנה סביבה. **בלי הגדרה, אף אתר אחר לא יכול לקרוא ל-API מהדפדפן** |
+| `RateLimiting:AuthPermitLimit`, `RateLimiting:AuthWindowSeconds` | הגבלת קצב להרשמה והתחברות לכל כתובת IP. ברירת מחדל: 10 בקשות ב-60 שניות, ואחריהן 429 עם `Retry-After`. המונה בזיכרון של המופע (מתאים למופע יחיד). משתמשים מאחורי אותה כתובת (למשל רשת משותפת בהדגמה) חולקים מונה |
 | `Swagger:Enabled` | ברירת מחדל `true` בכל סביבה |
 | `PORT` | נקבע על ידי Render. השרת מאזין לפורט הזה על `0.0.0.0` (מקומית: הכתובות מ-`launchSettings.json`) |
 
@@ -400,6 +401,7 @@ git push -u origin main
 - **PostgreSQL ו-`xmin`:** ב-PostgreSQL אין `rowversion`, ולכן ה-concurrency token ממופה לעמודת המערכת `xmin`. כל התאריכים נשמרים ב-UTC.
 - **AutoMapper 14.0.0:** מסומנת בפגיעות ידועה (CVE-2026-32933, מניעת שירות במיפוי גרפים עמוקים או מעגליים). הגרסאות המתוקנות דורשות מפתח רישיון, והדרישות מציינות AutoMapper. הסיכון מקובל כאן כי המיפויים שטוחים ובעומק קבוע ואינם רצים על קלט של משתמש. ההתראה מוסתרת **במפורש** עם הסבר ב-`ParkingSystem.Service.csproj`. מומלץ לבדוק מחדש אם היקף המיפוי גדל.
 - **מיפוי:** גם התשובות וגם הבקשות (הרשמה, יצירה ועדכון של מקום, הזמנה) ממופות ב-AutoMapper. שדות שהשרת קובע בעצמו (מזהה, גרסה, בעל ההזמנה, זמן יצירה, hash של סיסמה) מוחרגים במיפוי, והשירות ממלא אותם.
+- **סיסמה:** 8 עד 72 **בייטים** (לא תווים): BCrypt קורא רק 72 בייטים, ותו בעברית תופס 2 בייטים, ולכן 36 אותיות בעברית הן המקסימום.
 - **Swagger בייצור:** פעיל בכל סביבה (כולל Render), כי הדרישות מבקשות Swagger פעיל. הוא חושף את מבנה ה-API בלבד, ללא נתונים. אפשר לכבות עם `Swagger__Enabled=false`.
 - **שמות ה-endpoints של Auth:** `POST /api/users` (הרשמה) ו-`POST /api/tokens` (התחברות), כמשאבים ולא כשמות פעולות. ההרשמה מחזירה 200 עם ה-token (ולא 201), כי אין endpoint שמציג משתמש בודד שאליו אפשר להצביע ב-`Location`.
 - **`UseHttpsRedirection`:** פעיל בפיתוח בלבד. בהרצה מקומית על HTTP בלבד נרשמת אזהרה "Failed to determine the https port" בכל בקשה, והיא לא משפיעה על התפקוד. בענן ה-HTTPS נעצר ב-load balancer של Render.
@@ -417,7 +419,7 @@ git push -u origin main
 | שרת API: שכבות, DI, EF Core + migrations + Seed, JWT ו-roles, ולידציה, Middleware, NLog | ✅ הושלם |
 | טיפול בתחרות על המשאב (שלוש שכבות) והוכחתו בבדיקות | ✅ הושלם |
 | Swagger (כפתור Authorize, תיעוד קודי תגובה) | ✅ הושלם |
-| בדיקות אוטומטיות בשרת (217) | ✅ הושלם |
+| בדיקות אוטומטיות בשרת (227) | ✅ הושלם |
 | לקוח React (repository נפרד: 4 מסכים, 22 בדיקות, נבדק בדפדפן אמיתי מול השרת) | ✅ הושלם (commit מקומי) |
 | הכנת השרת והלקוח ל-Render (Dockerfile, Blueprints, CORS, `/healthz`, כותרות proxy) | ✅ הושלם ונבדק מקומית |
 | העלאת שני ה-repositories ל-GitHub | ⬜ נדרשת פעולה שלכם (ראו [הגשה](#הגשה-ושני-ה-repositories)) |

@@ -43,6 +43,7 @@ builder.Services.AddApplicationServices(builder.Configuration);
 builder.Services.AddJwtAuthentication();
 builder.Services.AddClientCors();    // מתיר ללקוח ה-React (Cors:AllowedOrigins) לקרוא ל-API מהדפדפן
 builder.Services.AddProxyHeaders();  // השרת רץ מאחורי proxy (Render), ולכן קורא X-Forwarded-*
+builder.Services.AddAuthRateLimiting(); // מגביל ניסיונות הרשמה והתחברות לכל כתובת IP
 
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
@@ -103,6 +104,9 @@ if (app.Environment.IsDevelopment())
 
 // CORS לפני האימות, כדי שבקשות preflight (OPTIONS) של הדפדפן יענו בלי token
 app.UseCors(ParkingSystem.API.Extensions.ServiceCollectionExtensions.ClientCorsPolicy);
+
+// אחרי CORS, כדי שגם תשובת 429 תהיה קריאה לדפדפן
+app.UseRateLimiter();
 
 // הסדר חשוב: קודם מזהים מי המשתמש (Authentication), ורק אחר כך בודקים מה מותר לו (Authorization)
 app.UseAuthentication();
