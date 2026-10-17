@@ -135,6 +135,32 @@ dotnet run --project ParkingSystem.API
 
 הכתובת: **http://localhost:5258** (פרופיל `http`), ובפרופיל `https` גם `https://localhost:7172`.
 
+### 4. הפעלת הלקוח (React)
+הלקוח נמצא ב-repository הנפרד `parking-system-client` (תיקייה לצד תיקיית השרת). דורש **Node.js 22.12 ומעלה**:
+```bash
+cd ../parking-system-client
+npm install
+npm run dev
+```
+הכתובת: **http://localhost:5173**. הכתובות והפורטים אומתו בהרצה בפועל: שרת `5258`, לקוח `5173`, בדיקת תקינות `http://localhost:5258/healthz`.
+
+### הפעלה בפקודה אחת (Windows)
+אחרי שלב 2 (סודות) אפשר להפעיל הכול יחד: בסיס נתונים, שרת ולקוח (כל אחד בחלון נפרד):
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-local.ps1
+```
+הסקריפט לא מכיל סיסמאות. אם `Jwt:SecretKey` חסר הוא יוצר מפתח אקראי ושומר אותו ב-User Secrets. סיסמאות הדמו נשארות באחריותכם (שלב 2).
+
+### פתרון תקלות נפוצות
+| תקלה | פתרון |
+|---|---|
+| השרת לא עולה ומתלונן על `Jwt:SecretKey` | להריץ את פקודות `user-secrets set` משלב 2 |
+| התחברות כמשתמש דמו נכשלת | הסיסמאות לא הוגדרו לפני העלייה הראשונה. להגדיר אותן ולאפס את בסיס הנתונים (הסעיף הבא) |
+| שגיאת חיבור ל-PostgreSQL | לוודא ש-Docker Desktop פועל ושהקונטיינר `parking-system-db` במצב `healthy` (`docker ps`) |
+| הלקוח מציג שגיאת רשת או CORS | לוודא שהשרת רץ על `5258` ושהלקוח נפתח מ-`http://localhost:5173` בדיוק |
+| הפורט תפוס | לסגור את התהליך שמחזיק בו (`netstat -ano`) או לשנות פורט ב-`launchSettings.json` |
+| `npm run dev` נכשל | לבדוק `node -v` (נדרש 22.12+) ולהריץ `npm install` |
+
 ### איפוס בסיס הנתונים המקומי
 ```bash
 docker compose down -v      # מוחק את הקונטיינר ואת הנתונים
