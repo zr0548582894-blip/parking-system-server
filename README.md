@@ -1,7 +1,7 @@
 # ParkingSystem – מערכת להקצאת מקומות חניה
 
 שרת **ASP.NET Core Web API** (‏.NET 8) שבו עובדים מזמינים מקום חניה ליום מסוים.
-זהו שרת הפרויקט בלבד. לקוח ה-React וההעלאה ל-Render אינם חלק מה-repository הזה (ראו [מצב הפרויקט](#מצב-הפרויקט)).
+זהו ה-repository של **השרת**. לקוח ה-React נמצא ב-repository נפרד (`parking-system-client`, ראו [הגשה](#הגשה-ושני-ה-repositories)), והפריסה ל-Render מתוארת ב-[פריסה ל-Render](#פריסה-ל-render). מצב מלא ב-[מצב הפרויקט](#מצב-הפרויקט).
 
 ## תוכן עניינים
 1. [המשאב המוגבל והתחרות עליו](#המשאב-המוגבל-והתחרות-עליו)
@@ -16,8 +16,10 @@
 10. [קונפיגורציה וסודות](#קונפיגורציה-וסודות)
 11. [לוגים](#לוגים)
 12. [Migrations](#migrations)
-13. [החלטות והסתייגויות ידועות](#החלטות-והסתייגויות-ידועות)
-14. [מצב הפרויקט](#מצב-הפרויקט)
+13. [פריסה ל-Render](#פריסה-ל-render)
+14. [הגשה ושני ה-repositories](#הגשה-ושני-ה-repositories)
+15. [החלטות והסתייגויות ידועות](#החלטות-והסתייגויות-ידועות)
+16. [מצב הפרויקט](#מצב-הפרויקט)
 
 ---
 
@@ -68,7 +70,7 @@ API ──► Service ──► Core ◄── Data
 - **Dependency Injection:** כל הרישום בקובץ אחד, `ParkingSystem.API/Extensions/ServiceCollectionExtensions.cs`:
   - `DbContext`, ה-repositories והשירותים: **Scoped** (אינסטנס לכל בקשה).
   - מצפין הסיסמאות, יוצר ה-token והשעון: **Singleton** (חסרי מצב ואינם תלויים ב-`DbContext`).
-- **Middleware**, בסדר הזה: טיפול גלובלי בשגיאות ← `CorrelationId` ← לוג בקשות ← Swagger ← HTTPS ← Authentication ← Authorization ← Controllers.
+- **Middleware**, בסדר הזה: כותרות proxy (`X-Forwarded-*`) ← טיפול גלובלי בשגיאות ← `CorrelationId` ← לוג בקשות ← Swagger ← הפניה ל-HTTPS (בפיתוח בלבד) ← CORS ← Authentication ← Authorization ← Controllers. בנוסף, `GET /healthz` לבדיקת חיים בענן.
 
 מבנה התיקיות:
 
@@ -76,6 +78,8 @@ API ──► Service ──► Core ◄── Data
 project_dotnet/
 ├── ParkingSystem.sln
 ├── docker-compose.yml          # PostgreSQL 16 מקומי
+├── Dockerfile, .dockerignore   # תמונת Docker של השרת (נדרשת ל-Render)
+├── render.yaml                 # Render Blueprint: שירות השרת ובסיס הנתונים
 ├── ParkingSystem.Core/         # Entities, Enums, DTOs, Interfaces, Common, Options, Exceptions
 ├── ParkingSystem.Data/         # Context, Configurations, Repositories, Migrations, Seed
 ├── ParkingSystem.Service/      # Services, Security, Mapping
@@ -166,7 +170,7 @@ docker compose up -d
 4. פעולות מוגנות מסומנות בנעילה.
 
 כל הפעולות מתועדות: תקציר, DTOs של הבקשה והתשובה (כולל כללי הוולידציה), ותיאור לכל קוד תגובה אפשרי.
-> Swagger פעיל כרגע **בסביבת Development בלבד** (ראו [החלטות והסתייגויות](#החלטות-והסתייגויות-ידועות)).
+> Swagger פעיל **בכל סביבה**, כולל Production וכולל Render (כדי שאפשר יהיה לבדוק את ה-API שם). לכיבוי: `Swagger__Enabled=false`.
 
 ---
 
@@ -231,25 +235,25 @@ Content-Type: application/json
 dotnet test ParkingSystem.sln
 ```
 
-**177 בדיקות** (xUnit + Moq):
+**209 בדיקות** (xUnit + Moq):
 
 | קבוצה | מה נבדק |
 |---|---|
 | Service (Moq) | הצלחה **ודחייה** של כל פעולה: הזמנה, ביטול, מקומות חניה, הרשמה והתחברות |
 | אבטחה | הצפנת סיסמאות, יצירת token ואימותו (חתימה, תוקף, Issuer, Audience, זיוף תפקיד, `alg: none`) |
 | ולידציה ו-`ModelState` | כללי Data Annotations על כל ה-DTOs, וה-`ModelState` בכל פעולה ב-Controllers |
-| DI ו-Middleware | lifetimes, CorrelationId, טיפול בשגיאות, לוג בקשות |
-| **אינטגרציה (PostgreSQL)** | התחרות: שני `DbContext`, אינדקסים ייחודיים, ו-8 בקשות מקבילות; בדיקות HTTP מקצה לקצה; מסמך ה-Swagger |
+| DI, Middleware וכתובת החיבור | lifetimes, CorrelationId, טיפול בשגיאות, לוג בקשות, המרת כתובת `postgres://` של Render |
+| **אינטגרציה (PostgreSQL)** | התחרות: שני `DbContext`, אינדקסים ייחודיים, ו-8 בקשות מקבילות; בדיקות HTTP מקצה לקצה; מסמך ה-Swagger; מוכנות לענן (CORS, כותרות proxy, `/healthz`, Production) |
 
 ### בדיקות שדורשות PostgreSQL
-**34 בדיקות** (אינטגרציה, HTTP מקצה לקצה ו-Swagger) מפעילות את ה-API או את בסיס הנתונים בפועל, ולכן דורשות PostgreSQL זמין:
+**45 בדיקות** (אינטגרציה, HTTP מקצה לקצה, Swagger ומוכנות לענן) מפעילות את ה-API או את בסיס הנתונים בפועל, ולכן דורשות PostgreSQL זמין:
 
 ```bash
 docker compose up -d      # לפני dotnet test
 ```
 
 - כל מחלקת בדיקות יוצרת **בסיס נתונים זמני משלה**, מחילה עליו את ה-migrations האמיתיים, ומוחקת אותו בסיום. **בסיס נתוני הפיתוח שלכם לא נפגע.**
-- אם PostgreSQL **לא זמין**, 34 הבדיקות האלה **מדלגות** (`Skipped`) עם הודעה ברורה, ו-143 הבדיקות האחרות עוברות. הן לא נכשלות.
+- אם PostgreSQL **לא זמין**, 45 הבדיקות האלה **מדלגות** (`Skipped`) עם הודעה ברורה, ו-164 הבדיקות האחרות עוברות. הן לא נכשלות.
 - כברירת מחדל הבדיקות מתחברות ל-`Host=localhost;Port=5432;Username=postgres` (בסיס הנתונים מ-`docker-compose`). לשימוש בשרת אחר, הגדירו את משתנה הסביבה `PARKING_TEST_POSTGRES` למחרוזת חיבור שמאפשרת `CREATE DATABASE`.
 
 ---
@@ -265,8 +269,11 @@ docker compose up -d      # לפני dotnet test
 | `SeedUsers:AdminPassword`, `SeedUsers:EmployeePassword` | User Secrets או משתנה סביבה. אופציונלי |
 | `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiryMinutes` | `appsettings.json` (אינן סוד) |
 | `ReservationRules:MaxDaysAhead` | `appsettings.json` |
+| `Cors:AllowedOrigins` | כתובת הלקוח (כמה כתובות מופרדות בפסיק). בפיתוח: `http://localhost:5173` ב-`appsettings.Development.json`. בענן: משתנה סביבה. **בלי הגדרה, אף אתר אחר לא יכול לקרוא ל-API מהדפדפן** |
+| `Swagger:Enabled` | ברירת מחדל `true` בכל סביבה |
+| `PORT` | נקבע על ידי Render. השרת מאזין לפורט הזה על `0.0.0.0` (מקומית: הכתובות מ-`launchSettings.json`) |
 
-משתני סביבה נכתבים עם `__` במקום `:`, למשל `Jwt__SecretKey`.
+משתני סביבה נכתבים עם `__` במקום `:`, למשל `Jwt__SecretKey`. כתובת בסיס הנתונים יכולה להיות מחרוזת רגילה (`Host=...`) או כתובת `postgres://user:password@host:5432/db` כמו ש-Render נותן (השרת ממיר אותה).
 
 ---
 
@@ -296,13 +303,82 @@ dotnet ef migrations add <שם> -p ParkingSystem.Data -s ParkingSystem.API
 
 ---
 
+## פריסה ל-Render
+
+השרת והלקוח נפרסים **בנפרד** ב-Render. כל מה שנדרש לכך כבר כתוב ב-repository, ונבדק מקומית: תמונת ה-Docker נבנתה והורצה בדיוק כמו ש-Render מריץ אותה (משתמש לא-root, פורט מ-`PORT`, כתובת `postgres://`, סביבת Production), והתחברות, Seed, Swagger, CORS וכותרת `Location` ב-https עבדו.
+
+> **מה עוד לא בוצע:** הפריסה בפועל. היא דורשת חשבון Render וחיבורו ל-GitHub (פעולות שרק בעלת החשבון יכולה לבצע). מדובר בשלבים הבאים.
+
+### שלבים
+1. **להעלות את שני ה-repositories ל-GitHub** (ראו [הגשה](#הגשה-ושני-ה-repositories)).
+2. **שרת:** ב-Render לחצו **New > Blueprint** ובחרו את ה-repository של השרת. `render.yaml` יוצר שירות Web (Docker, אזור Frankfurt) ובסיס נתונים PostgreSQL. Render ישאל על הערכים הבאים:
+
+   | משתנה | מה להזין |
+   |---|---|
+   | `SeedUsers__AdminPassword` | סיסמת משתמש ה-Admin (למשל `Admin-Demo-2026!`) |
+   | `SeedUsers__EmployeePassword` | סיסמת משתמש ה-Employee (למשל `Employee-Demo-2026!`) |
+   | `Cors__AllowedOrigins` | אפשר להשאיר זמנית ריק, ולעדכן בשלב 4 |
+
+   השאר נקבע אוטומטית: `ConnectionStrings__Default` מגיע מבסיס הנתונים, ו-`Jwt__SecretKey` נוצר אקראי על ידי Render (אינו נשמר ב-Git).
+3. **לוודא שהשרת עלה:** `https://<שם-השירות>.onrender.com/healthz` מחזיר `{"status":"ok"}`, ו-`/swagger` נפתח. הבנייה הראשונה לוקחת כמה דקות. בעלייה השרת מחיל את ה-migrations ומזין את נתוני ההתחלה לבד.
+4. **לקוח:** ב-repository של הלקוח: **New > Blueprint** (ראו ה-README שלו). הזינו `VITE_API_URL` = כתובת השרת. אחרי שהלקוח עלה, חזרו לשרת, **Environment > `Cors__AllowedOrigins`** = כתובת הלקוח (בלי `/` בסוף), ושמרו.
+5. **לבדוק מקצה לקצה:** פתחו את הלקוח, התחברו עם משתמש דמו, והזמינו מקום.
+
+### מגבלות של התוכנית החינמית (לפי התיעוד של Render, נבדק ב-2026-10-17)
+- שירות Web חינמי **נרדם אחרי 15 דקות בלי תעבורה**, וההתעוררות לוקחת כדקה. יש 750 שעות חינמיות בחודש לכל workspace.
+- בסיס נתונים חינמי **פג תוקף 30 יום אחרי יצירתו** (ואז 14 ימי חסד לפני שהוא נמחק), עד 1GB, ובסיס נתונים חינמי אחד לכל workspace. **לפני ההגשה כדאי לוודא שהתוקף לא פג.**
+- אתר סטטי (הלקוח) חינמי, בלי מגבלת התעוררות.
+
+### בדיקה מקומית של תמונת ה-Docker
+```bash
+docker build -t parking-system-api .
+```
+והרצה (לדוגמה מול בסיס הנתונים של `docker-compose`, באותה רשת):
+```bash
+docker run --rm -p 8080:10000 --network project_dotnet_default \
+  -e PORT=10000 \
+  -e "ConnectionStrings__Default=postgres://postgres@parking-system-db:5432/parking_system" \
+  -e "Jwt__SecretKey=<מפתח מקומי באורך 32 תווים לפחות>" \
+  parking-system-api
+```
+
+---
+
+## הגשה ושני ה-repositories
+
+הדרישות: שני repositories נפרדים ב-GitHub, שרת ולקוח, עם `.gitignore` מתאים בכל אחד.
+
+| repository | תיקייה מקומית | סטטוס |
+|---|---|---|
+| שרת | `project_dotnet` | קיים ב-GitHub: `parking-system-server` (פרטי). **יש commits מקומיים שטרם נדחפו** |
+| לקוח | `parking-system-client` (תיקייה אחות) | commit מקומי בלבד, **עדיין אין repository ב-GitHub** |
+
+להעלאה (פעם אחת, מחשבון ה-GitHub שלכם):
+```bash
+# שרת: ה-remote כבר מוגדר
+cd project_dotnet
+git push origin main
+
+# לקוח: יוצרים repository ריק ב-GitHub (בלי README ובלי .gitignore), ואז:
+cd ../parking-system-client
+git remote add origin https://github.com/<החשבון-שלכם>/parking-system-client.git
+git push -u origin main
+```
+- שני ה-repositories **נקיים מסודות** (נבדק, כולל כל ההיסטוריה). ה-`.gitignore` מחריג `bin`, `obj`, `node_modules`, `dist`, לוגים, `.env` וקובצי User Secrets.
+- כדי שהבודקת תוכל לראות אותם, הוסיפו אותה כ-Collaborator, או הפכו את ה-repositories לציבוריים.
+
+---
+
 ## החלטות והסתייגויות ידועות
 
 - **PostgreSQL ו-`xmin`:** ב-PostgreSQL אין `rowversion`, ולכן ה-concurrency token ממופה לעמודת המערכת `xmin`. כל התאריכים נשמרים ב-UTC.
 - **AutoMapper 14.0.0:** מסומנת בפגיעות ידועה (CVE-2026-32933, מניעת שירות במיפוי גרפים עמוקים או מעגליים). הגרסאות המתוקנות דורשות מפתח רישיון, והדרישות מציינות AutoMapper. הסיכון מקובל כאן כי המיפויים שטוחים ובעומק קבוע ואינם רצים על קלט של משתמש. ההתראה מוסתרת **במפורש** עם הסבר ב-`ParkingSystem.Service.csproj`. מומלץ לבדוק מחדש אם היקף המיפוי גדל.
-- **מיפוי בקשות:** התשובות ממופות ב-AutoMapper. הפיכת בקשות (`Create`/`Update`) לישויות נעשית ידנית ב-Services.
-- **Swagger בייצור:** כרגע מופעל רק בסביבת Development. בפריסה ל-Production הוא כבוי, ויש להחליט אם להפעילו שם.
-- **`UseHttpsRedirection`:** בהרצה על HTTP בלבד נרשמת אזהרה "Failed to determine the https port" בכל בקשה. היא לא משפיעה על התפקוד.
+- **מיפוי:** גם התשובות וגם הבקשות (הרשמה, יצירה ועדכון של מקום, הזמנה) ממופות ב-AutoMapper. שדות שהשרת קובע בעצמו (מזהה, גרסה, בעל ההזמנה, זמן יצירה, hash של סיסמה) מוחרגים במיפוי, והשירות ממלא אותם.
+- **Swagger בייצור:** פעיל בכל סביבה (כולל Render), כי הדרישות מבקשות Swagger פעיל. הוא חושף את מבנה ה-API בלבד, ללא נתונים. אפשר לכבות עם `Swagger__Enabled=false`.
+- **שמות ה-endpoints של Auth:** `POST /api/users` (הרשמה) ו-`POST /api/tokens` (התחברות), כמשאבים ולא כשמות פעולות. ההרשמה מחזירה 200 עם ה-token (ולא 201), כי אין endpoint שמציג משתמש בודד שאליו אפשר להצביע ב-`Location`.
+- **`UseHttpsRedirection`:** פעיל בפיתוח בלבד. בהרצה מקומית על HTTP בלבד נרשמת אזהרה "Failed to determine the https port" בכל בקשה, והיא לא משפיעה על התפקוד. בענן ה-HTTPS נעצר ב-load balancer של Render.
+- **כותרות proxy:** השרת מקבל `X-Forwarded-*` מכל מקור (ה-proxy של Render אינו בכתובת קבועה). ההשפעה היחידה היא על הסכמה והדומיין שבכותרת `Location`.
+- **לוג שגיאות של EF:** EF Core כותב `Error` על כל שמירה שנכשלה, גם כשהאינדקס הייחודי עצר הזמנה כפולה בתחרות והשרת החזיר 409 תקין. כדי שלא יטעה, הקטגוריה הזו מושתקת ב-`nlog.config`: כשל מטופל נרשם כ-`Warning` על ידי השירותים, וחריגה שלא טופלה נרשמת כ-`Error` על ידי ה-middleware.
 - **אין endpoint לקידום משתמש ל-Admin.** Admin נוצר רק ב-Seed. זו תוספת אפשרית, שאינה בתכולת הפרויקט.
 - בתחרות על הזמנות לתאריכים שונים באותו מקום (ראו למעלה) ייתכן 409 מיותר שנפתר בניסיון חוזר.
 
@@ -315,6 +391,8 @@ dotnet ef migrations add <שם> -p ParkingSystem.Data -s ParkingSystem.API
 | שרת API: שכבות, DI, EF Core + migrations + Seed, JWT ו-roles, ולידציה, Middleware, NLog | ✅ הושלם |
 | טיפול בתחרות על המשאב (שלוש שכבות) והוכחתו בבדיקות | ✅ הושלם |
 | Swagger (כפתור Authorize, תיעוד קודי תגובה) | ✅ הושלם |
-| בדיקות אוטומטיות (177) | ✅ הושלם |
-| לקוח React (repository נפרד) | ⬜ לא התחיל |
-| העלאה ל-Render (שרת, לקוח ו-PostgreSQL) | ⬜ לא התחיל |
+| בדיקות אוטומטיות בשרת (209) | ✅ הושלם |
+| לקוח React (repository נפרד: 4 מסכים, 22 בדיקות, נבדק בדפדפן אמיתי מול השרת) | ✅ הושלם (commit מקומי) |
+| הכנת השרת והלקוח ל-Render (Dockerfile, Blueprints, CORS, `/healthz`, כותרות proxy) | ✅ הושלם ונבדק מקומית |
+| העלאת שני ה-repositories ל-GitHub | ⬜ נדרשת פעולה שלכם (ראו [הגשה](#הגשה-ושני-ה-repositories)) |
+| פריסה בפועל ל-Render | ⬜ נדרשת פעולה שלכם (ראו [פריסה ל-Render](#פריסה-ל-render)) |
