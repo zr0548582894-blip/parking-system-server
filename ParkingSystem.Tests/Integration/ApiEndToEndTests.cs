@@ -74,6 +74,52 @@ public class ApiEndToEndTests : IClassFixture<ApiTestHost>
     private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<JsonElement>(Json);
 
+    // ---------- מקרי קצה שנמצאו בביקורת ----------
+
+    [PostgresFact]
+    public async Task HugePageNumber_IsRejectedWith400_NotA500()
+    {
+        var (client, _) = await NewEmployeeAsync();
+
+        var response = await client.GetAsync($"/api/parking-spots?page={int.MaxValue}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [PostgresFact]
+    public async Task PageBeyondTheLastPage_ReturnsAnEmptyListWithTheTotals()
+    {
+        var (client, _) = await NewEmployeeAsync();
+
+        var body = await ReadJsonAsync(await client.GetAsync("/api/parking-spots?page=999&pageSize=5"));
+
+        Assert.Equal(0, body.GetProperty("items").GetArrayLength());
+        Assert.True(body.GetProperty("totalCount").GetInt32() > 0);
+    }
+
+    [PostgresFact]
+    public async Task ValidTokenOfAUserThatDoesNotExist_GetsA401OnReserve_NotA500()
+    {
+        var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+        var key = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+            System.Text.Encoding.UTF8.GetBytes("end-to-end-test-only-key-0123456789-abcdefgh"));
+        var token = handler.WriteToken(new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(
+            issuer: "ParkingSystem",
+            audience: "ParkingSystem.Client",
+            claims: new[]
+            {
+                new System.Security.Claims.Claim("sub", "987654"),
+                new System.Security.Claims.Claim("role", "Employee")
+            },
+            expires: DateTime.UtcNow.AddMinutes(5),
+            signingCredentials: new Microsoft.IdentityModel.Tokens.SigningCredentials(
+                key, Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256)));
+
+        var response = await ReserveAsync(WithToken(token), 1, DayFromToday(3));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     // ---------- אימות (401) ----------
 
     [PostgresFact]

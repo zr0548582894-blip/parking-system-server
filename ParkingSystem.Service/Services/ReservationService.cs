@@ -17,6 +17,7 @@ public class ReservationService : IReservationService
 {
     private const string DateRequiredMessage = "יש לציין תאריך.";
     private const string DateInPastMessage = "לא ניתן להזמין תאריך שעבר.";
+    private const string UserNotFoundMessage = "המשתמש לא נמצא. יש להתחבר מחדש.";
     private const string SpotNotFoundMessage = "מקום החניה לא נמצא.";
     private const string SpotInactiveMessage = "מקום החניה אינו פעיל.";
     private const string SpotTakenMessage = "המקום כבר תפוס בתאריך זה.";
@@ -28,6 +29,7 @@ public class ReservationService : IReservationService
 
     private readonly IReservationRepository _reservations;
     private readonly IParkingSpotRepository _spots;
+    private readonly IUserRepository _users;
     private readonly IMapper _mapper;
     private readonly TimeProvider _timeProvider;
     private readonly ReservationRulesOptions _rules;
@@ -36,6 +38,7 @@ public class ReservationService : IReservationService
     public ReservationService(
         IReservationRepository reservations,
         IParkingSpotRepository spots,
+        IUserRepository users,
         IMapper mapper,
         TimeProvider timeProvider,
         IOptions<ReservationRulesOptions> rules,
@@ -43,6 +46,7 @@ public class ReservationService : IReservationService
     {
         _reservations = reservations;
         _spots = spots;
+        _users = users;
         _mapper = mapper;
         _timeProvider = timeProvider;
         _rules = rules.Value;
@@ -156,6 +160,12 @@ public class ReservationService : IReservationService
     private async Task<Result<int>> TryCreateAsync(
         int userId, CreateReservationRequest request, DateOnly date, DateTime now, CancellationToken ct)
     {
+        // טוקן תקין של משתמש שנמחק: עונים 401 במקום ליפול על מפתח זר בבסיס הנתונים
+        if (await _users.GetByIdAsync(userId, ct) is null)
+        {
+            return Result<int>.Fail(ErrorType.Unauthorized, UserNotFoundMessage);
+        }
+
         var spotId = request.ParkingSpotId;
         var spot = await _spots.GetByIdAsync(spotId, ct);
         if (spot is null)

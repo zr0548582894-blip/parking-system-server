@@ -261,7 +261,7 @@ Content-Type: application/json
 dotnet test ParkingSystem.sln
 ```
 
-**209 בדיקות** (xUnit + Moq):
+**217 בדיקות** (xUnit + Moq):
 
 | קבוצה | מה נבדק |
 |---|---|
@@ -272,14 +272,14 @@ dotnet test ParkingSystem.sln
 | **אינטגרציה (PostgreSQL)** | התחרות: שני `DbContext`, אינדקסים ייחודיים, ו-8 בקשות מקבילות; בדיקות HTTP מקצה לקצה; מסמך ה-Swagger; מוכנות לענן (CORS, כותרות proxy, `/healthz`, Production) |
 
 ### בדיקות שדורשות PostgreSQL
-**45 בדיקות** (אינטגרציה, HTTP מקצה לקצה, Swagger ומוכנות לענן) מפעילות את ה-API או את בסיס הנתונים בפועל, ולכן דורשות PostgreSQL זמין:
+**48 בדיקות** (אינטגרציה, HTTP מקצה לקצה, Swagger ומוכנות לענן) מפעילות את ה-API או את בסיס הנתונים בפועל, ולכן דורשות PostgreSQL זמין:
 
 ```bash
 docker compose up -d      # לפני dotnet test
 ```
 
 - כל מחלקת בדיקות יוצרת **בסיס נתונים זמני משלה**, מחילה עליו את ה-migrations האמיתיים, ומוחקת אותו בסיום. **בסיס נתוני הפיתוח שלכם לא נפגע.**
-- אם PostgreSQL **לא זמין**, 45 הבדיקות האלה **מדלגות** (`Skipped`) עם הודעה ברורה, ו-164 הבדיקות האחרות עוברות. הן לא נכשלות.
+- אם PostgreSQL **לא זמין**, 48 הבדיקות האלה **מדלגות** (`Skipped`) עם הודעה ברורה, ו-169 הבדיקות האחרות עוברות. הן לא נכשלות.
 - כברירת מחדל הבדיקות מתחברות ל-`Host=localhost;Port=5432;Username=postgres` (בסיס הנתונים מ-`docker-compose`). לשימוש בשרת אחר, הגדירו את משתנה הסביבה `PARKING_TEST_POSTGRES` למחרוזת חיבור שמאפשרת `CREATE DATABASE`.
 
 ---
@@ -417,7 +417,7 @@ git push -u origin main
 | שרת API: שכבות, DI, EF Core + migrations + Seed, JWT ו-roles, ולידציה, Middleware, NLog | ✅ הושלם |
 | טיפול בתחרות על המשאב (שלוש שכבות) והוכחתו בבדיקות | ✅ הושלם |
 | Swagger (כפתור Authorize, תיעוד קודי תגובה) | ✅ הושלם |
-| בדיקות אוטומטיות בשרת (209) | ✅ הושלם |
+| בדיקות אוטומטיות בשרת (217) | ✅ הושלם |
 | לקוח React (repository נפרד: 4 מסכים, 22 בדיקות, נבדק בדפדפן אמיתי מול השרת) | ✅ הושלם (commit מקומי) |
 | הכנת השרת והלקוח ל-Render (Dockerfile, Blueprints, CORS, `/healthz`, כותרות proxy) | ✅ הושלם ונבדק מקומית |
 | העלאת שני ה-repositories ל-GitHub | ⬜ נדרשת פעולה שלכם (ראו [הגשה](#הגשה-ושני-ה-repositories)) |

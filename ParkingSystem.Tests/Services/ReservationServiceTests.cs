@@ -25,6 +25,7 @@ public class ReservationServiceTests
 
     private readonly Mock<IReservationRepository> _reservations = new();
     private readonly Mock<IParkingSpotRepository> _spots = new();
+    private readonly Mock<IUserRepository> _users = new();
     private readonly Mock<ILogger<ReservationService>> _logger = new();
     private readonly ReservationService _service;
 
@@ -36,10 +37,14 @@ public class ReservationServiceTests
                 It.IsAny<Func<CancellationToken, Task<Result<int>>>>(), It.IsAny<CancellationToken>()))
             .Returns<Func<CancellationToken, Task<Result<int>>>, CancellationToken>((action, token) => action(token));
 
+        // ברירת מחדל: המשתמש המזמין קיים
+        _users.Setup(u => u.GetByIdAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new User { Id = UserId, FullName = "Dana Levi" });
+
         var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
 
         _service = new ReservationService(
-            _reservations.Object, _spots.Object, mapper, new FixedTimeProvider(Now),
+            _reservations.Object, _spots.Object, _users.Object, mapper, new FixedTimeProvider(Now),
             Options.Create(new ReservationRulesOptions { MaxDaysAhead = 30 }), _logger.Object);
     }
 
@@ -136,6 +141,18 @@ public class ReservationServiceTests
         var result = await _service.CreateAsync(UserId, Request(Today.AddDays(1)), Ct);
 
         Assert.Equal(ErrorType.NotFound, result.Error);
+    }
+
+    [Fact]
+    public async Task Create_UserNoLongerExists_ReturnsUnauthorizedAndSavesNothing()
+    {
+        _users.Setup(u => u.GetByIdAsync(UserId, It.IsAny<CancellationToken>())).ReturnsAsync((User?)null);
+        SpotExists(ActiveSpot());
+
+        var result = await _service.CreateAsync(UserId, Request(Today.AddDays(1)), Ct);
+
+        Assert.Equal(ErrorType.Unauthorized, result.Error);
+        _reservations.Verify(r => r.AddAsync(It.IsAny<Reservation>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

@@ -178,6 +178,7 @@ public class ReservationConcurrencyTests : IClassFixture<PostgresDatabaseFixture
             var service = new ReservationService(
                 new ReservationRepository(context),
                 new ParkingSpotRepository(context),
+                new UserRepository(context),
                 Mapper,
                 TimeProvider.System,
                 Options.Create(new ReservationRulesOptions { MaxDaysAhead = 30 }),

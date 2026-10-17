@@ -15,6 +15,7 @@ public class RegisterRequest
     public string Email { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(100, MinimumLength = 8)]
+    // BCrypt מתעלם מכל מה שאחרי 72 בייטים, ולכן לא מקבלים סיסמה ארוכה יותר
+    [StringLength(72, MinimumLength = 8)]
     public string Password { get; set; } = string.Empty;
 }

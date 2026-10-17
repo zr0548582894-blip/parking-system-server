@@ -50,6 +50,24 @@ public class DtoValidationTests
         Assert.True(HasErrorOn(Validate(request), nameof(RegisterRequest.Email)));
     }
 
+    [Fact]
+    public void Register_PasswordLongerThanBcryptLimit_IsRejected()
+    {
+        var request = ValidRegister();
+        request.Password = new string('a', 73);
+
+        Assert.True(HasErrorOn(Validate(request), nameof(RegisterRequest.Password)));
+    }
+
+    [Fact]
+    public void Register_PasswordOfExactlyMaxLength_IsAccepted()
+    {
+        var request = ValidRegister();
+        request.Password = new string('a', 72);
+
+        Assert.False(HasErrorOn(Validate(request), nameof(RegisterRequest.Password)));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("short")]                   // פחות מ-8 תווים
@@ -118,6 +136,8 @@ public class DtoValidationTests
     [InlineData(-1, 10)]
     [InlineData(1, 0)]
     [InlineData(1, 101)]
+    [InlineData(1_000_001, 10)]             // מעל התקרה
+    [InlineData(int.MaxValue, 100)]         // היה גולש בחישוב ההדלגה (500 בשרת)
     public void Pagination_OutOfRange_IsRejected(int page, int pageSize) =>
         Assert.NotEmpty(Validate(new PaginationQuery { Page = page, PageSize = pageSize }));
 
