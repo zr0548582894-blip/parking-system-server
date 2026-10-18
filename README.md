@@ -132,7 +132,14 @@ dotnet ef migrations add <שם> -p ParkingSystem.Data -s ParkingSystem.API
 
 ## פריסה ל-Render
 
-השרת והלקוח נפרסים בנפרד. ה-`Dockerfile` וה-`render.yaml` כבר ב-repository ונבדקו מקומית.
+השרת והלקוח נפרסים בנפרד, ושניהם באוויר:
+
+- **שרת:** https://parking-system-api-j020.onrender.com (Swagger ב-`/swagger`, בדיקת חיים ב-`/healthz`)
+- **לקוח:** https://parking-system-client-ijof.onrender.com
+
+משתמשי הדמו שלמעלה עובדים גם שם. אחרי חוסר פעילות השרת נרדם, ולכן הבקשה הראשונה עשויה לקחת כדקה.
+
+ה-`Dockerfile` וה-`render.yaml` נמצאים ב-repository. להקמה מחדש:
 
 1. העלו את ה-repository ל-GitHub, וב-Render בחרו **New > Blueprint**. נוצרים שירות Web ובסיס נתונים PostgreSQL.
 2. הזינו `SeedUsers__AdminPassword` ו-`SeedUsers__EmployeePassword`. `Jwt__SecretKey` ו-`ConnectionStrings__Default` נקבעים אוטומטית.
