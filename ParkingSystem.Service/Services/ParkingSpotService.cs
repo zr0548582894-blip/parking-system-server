@@ -16,6 +16,7 @@ public class ParkingSpotService : IParkingSpotService
     private const string UnknownFeatureMessage = "אחד או יותר מהמאפיינים שנבחרו לא קיים.";
     private const string DateRequiredMessage = "כדי לסנן מקומות פנויים יש לציין תאריך.";
     private const string HasFutureReservationsMessage = "לא ניתן להסיר מקום שיש לו הזמנות עתידיות.";
+    private const string HasFutureReservationsEditMessage = "לא ניתן לערוך מקום שיש לו הזמנות עתידיות.";
     private const string ChangedByAnotherMessage = "המקום עודכן על ידי משתמש אחר. נסי שוב.";
 
     private readonly IParkingSpotRepository _spots;
@@ -121,6 +122,14 @@ public class ParkingSpotService : IParkingSpotService
         if (spot is null)
         {
             return Result<ParkingSpotResponse>.Fail(ErrorType.NotFound, SpotNotFoundMessage);
+        }
+
+        // מקום עם הזמנות פעילות עתידיות לא נערך: אחרת אפשר להפוך אותו ללא פעיל או לשנות אותו מתחת למי שהזמין
+        var today = DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
+        if (await _spots.HasFutureReservationsAsync(id, today, ct))
+        {
+            _logger.LogWarning("Parking spot conflict: spot {SpotId} has future reservations and cannot be edited.", id);
+            return Result<ParkingSpotResponse>.Fail(ErrorType.Conflict, HasFutureReservationsEditMessage);
         }
 
         var code = request.Code.Trim();

@@ -207,6 +207,21 @@ public class ParkingSpotServiceTests
         _spots.Verify(s => s.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task Update_WithFutureReservations_ReturnsConflictAndDoesNotChangeSpot()
+    {
+        var spot = new ParkingSpot { Id = 4, Code = "OLD", IsActive = true };
+        _spots.Setup(s => s.GetByIdAsync(4, It.IsAny<CancellationToken>())).ReturnsAsync(spot);
+        _spots.Setup(s => s.HasFutureReservationsAsync(4, Today, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var result = await _service.UpdateAsync(4, new UpdateParkingSpotRequest { Code = "NEW", IsActive = false }, Ct);
+
+        Assert.Equal(ErrorType.Conflict, result.Error);
+        Assert.Equal("OLD", spot.Code);
+        Assert.True(spot.IsActive);
+        _spots.Verify(s => s.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Theory]
     [InlineData(typeof(ReservationConflictException))]
     [InlineData(typeof(DuplicateSpotCodeException))]
